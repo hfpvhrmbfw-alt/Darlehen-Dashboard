@@ -1,4 +1,4 @@
-# Darlehen-Tracker
+# Darlehen-Tracker (Darlehen-Dashboard)
 
 Gedankenspiel: Ein zinsloses (oder zinsarmes) Familiendarlehen der Eltern wird komplett in einen Welt-ETF (All-World) investiert. Das Dashboard zeigt, was das für das Vermögen bedeutet, wie lange es bis 100.000 € dauert und wie hoch das Risiko ist.
 
@@ -64,25 +64,26 @@ Annahmen, die nicht ausdrücklich vorgegeben waren: Krypto wird ohne Steuer und 
 
 Nach jeder Änderung an einer App-Datei in `sw.js` die Konstante `VERSION` erhöhen. Dann erscheint bei allen, die die App schon geöffnet hatten, die Note **UPDATE** mit dem Button „Neu laden“, und der alte Cache wird gelöscht.
 
-## Auf GitHub anlegen und pushen
+## Repository und Live-Version
 
-1. Auf github.com ein neues, leeres Repository anlegen (z. B. `darlehen-tracker`), ohne README, .gitignore oder Lizenz.
-2. Im Projektordner:
+- Repository: https://github.com/hfpvhrmbfw-alt/Darlehen-Dashboard
+- Live (GitHub Pages): https://hfpvhrmbfw-alt.github.io/Darlehen-Dashboard/
 
-   ```sh
-   git remote add origin https://github.com/<dein-name>/darlehen-tracker.git
-   git push -u origin main
-   ```
+Lokal weiterarbeiten:
 
-Die Commits tragen als Autorin „Anna Gramm“ mit der noreply-Adresse von GitHub. Wer das ändern will: `git config user.name` und `git config user.email` vor neuen Commits setzen.
+```sh
+git clone https://github.com/hfpvhrmbfw-alt/Darlehen-Dashboard.git
+cd Darlehen-Dashboard
+node --test
+```
 
-## GitHub Pages einrichten (später)
+## GitHub Pages einrichten
 
 1. Im Repository: **Settings → Pages**.
 2. Bei **Build and deployment** als Quelle **Deploy from a branch** wählen, Branch `main`, Ordner `/ (root)`, speichern.
-3. Nach kurzer Zeit läuft die App unter `https://<dein-name>.github.io/darlehen-tracker/`.
+3. Nach kurzer Zeit läuft die App unter https://hfpvhrmbfw-alt.github.io/Darlehen-Dashboard/.
 
-Alle Pfade sind relativ (`./`), `start_url` und `scope` sind `./`, deshalb funktioniert die App ohne Änderung im Unterpfad. `.nojekyll` sorgt dafür, dass GitHub die Dateien unverändert ausliefert. Über HTTPS lässt sich die App dann im Browser installieren („Zum Startbildschirm hinzufügen“ bzw. „App installieren“).
+Alle Pfade sind relativ (`./`), `start_url` und `scope` sind `./`, deshalb funktioniert die App ohne Änderung im Unterpfad `/Darlehen-Dashboard/`. `.nojekyll` sorgt dafür, dass GitHub die Dateien unverändert ausliefert. Über HTTPS lässt sich die App dann im Browser installieren („Zum Startbildschirm hinzufügen“ bzw. „App installieren“).
 
 ## Lizenzen
 
