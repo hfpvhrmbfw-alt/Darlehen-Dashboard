@@ -1,0 +1,11 @@
+{
+  "name": "darlehen-tracker",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Gedankenrechnung: Familiendarlehen im Welt-ETF als installierbare PWA",
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/"
+  },
+  "license": "UNLICENSED"
+}
