@@ -151,6 +151,12 @@ input[type="range"] { width:100%; accent-color:var(--accent); margin:0; min-heig
 .radio input { accent-color:var(--accent); margin:3px 0 0; width:18px; height:18px; flex:none; }
 .radio label:has(input:checked) { border-color:var(--ink); border-left:4px solid var(--accent); }
 .radio b { font-weight:600; }
+.check-inline { display:flex; gap:var(--s2); align-items:flex-start; font-size:15px; cursor:pointer; padding:var(--s2) 0; }
+.check-inline input { accent-color:var(--accent); width:18px; height:18px; margin:2px 0 0; flex:none; }
+.result-btn { text-align:left; white-space:normal !important; line-height:1.3; }
+.field input:disabled, .field select:disabled { opacity:.55; cursor:not-allowed; }
+table.data td input { font:15px var(--mono); padding:6px 8px; background:var(--bg); color:var(--ink); border:1px solid var(--line); border-bottom:2px solid var(--ink); border-radius:0; width:100%; min-width:0; min-height:36px; }
+table.data td input:focus-visible { outline:3px solid var(--accent-text); outline-offset:1px; }
 .switch { display:flex; gap:var(--s4); flex-wrap:wrap; align-items:center; }
 .seg { display:inline-flex; border:2px solid var(--ink); border-radius:var(--r); }
 .seg button { font:600 13px/1 var(--mono); letter-spacing:.06em; text-transform:uppercase; background:transparent; color:var(--ink); border:0; padding:var(--s2) var(--s3); min-height:36px; cursor:pointer; }
@@ -268,11 +274,12 @@ footer .wrap { display:flex; justify-content:space-between; flex-wrap:wrap; gap:
     <div role="tablist" aria-label="Abschnitte">
       <button role="tab" id="tab-1" aria-controls="panel-1" aria-selected="true" tabindex="0"><span class="no">№ 01</span>Eingaben</button>
       <button role="tab" id="tab-2" aria-controls="panel-2" aria-selected="false" tabindex="-1"><span class="no">№ 02</span>Überblick</button>
-      <button role="tab" id="tab-3" aria-controls="panel-3" aria-selected="false" tabindex="-1"><span class="no">№ 03</span>Szenarien</button>
-      <button role="tab" id="tab-4" aria-controls="panel-4" aria-selected="false" tabindex="-1"><span class="no">№ 04</span>Risiko</button>
-      <button role="tab" id="tab-5" aria-controls="panel-5" aria-selected="false" tabindex="-1"><span class="no">№ 05</span>Zinsgrenze</button>
-      <button role="tab" id="tab-6" aria-controls="panel-6" aria-selected="false" tabindex="-1"><span class="no">№ 06</span>Nach 100.000 €</button>
-      <button role="tab" id="tab-7" aria-controls="panel-7" aria-selected="false" tabindex="-1"><span class="no">№ 07</span>Eltern</button>
+      <button role="tab" id="tab-3" aria-controls="panel-3" aria-selected="false" tabindex="-1"><span class="no">№ 03</span>Rückzahlung</button>
+      <button role="tab" id="tab-4" aria-controls="panel-4" aria-selected="false" tabindex="-1"><span class="no">№ 04</span>Szenarien</button>
+      <button role="tab" id="tab-5" aria-controls="panel-5" aria-selected="false" tabindex="-1"><span class="no">№ 05</span>Risiko</button>
+      <button role="tab" id="tab-6" aria-controls="panel-6" aria-selected="false" tabindex="-1"><span class="no">№ 06</span>Zinsgrenze</button>
+      <button role="tab" id="tab-7" aria-controls="panel-7" aria-selected="false" tabindex="-1"><span class="no">№ 07</span>Nach 100.000 €</button>
+      <button role="tab" id="tab-8" aria-controls="panel-8" aria-selected="false" tabindex="-1"><span class="no">№ 08</span>Eltern</button>
     </div>
 
     <!-- № 01 Eingaben -->
@@ -300,6 +307,8 @@ footer .wrap { display:flex; justify-content:space-between; flex-wrap:wrap; gap:
             <div class="field" data-key="loan" data-kind="range" data-unit="€"><label for="in-loan">Betrag <output data-out="loan" for="in-loan"></output></label><input id="in-loan" name="loan" type="range" min="0" max="100000" step="1000"><div class="marks" aria-hidden="true"><span>0 €</span><span>50.000 €</span><span>100.000 €</span></div>
               <div class="toolbar" style="margin:var(--s1) 0 0"><button class="btn small" type="button" data-loan="20000">20.000 €</button><button class="btn small" type="button" data-loan="50000">50.000 €</button></div></div>
             <div class="field" data-key="loanRate" data-kind="range" data-unit="%"><label for="in-loanRate">Darlehenszins pro Jahr <output data-out="loanRate" for="in-loanRate"></output></label><input id="in-loanRate" name="loanRate" type="range" min="0" max="8" step="0.1"><div class="marks" aria-hidden="true"><span>0 %</span><span>4 %</span><span>8 %</span></div><span class="hint">Zinsen werden jährlich aus dem Einkommen bezahlt.</span></div>
+            <div class="field" data-key="loanEtfNow" data-kind="number"><label for="in-loanEtfNow">Darlehensgeld im ETF heute (€) <span class="val" data-out="loanEtfNow"></span></label><input id="in-loanEtfNow" name="loanEtfNow" type="number" inputmode="decimal" min="0" step="100"><span class="hint">0 = noch nicht investiert; dann zählt der Darlehensbetrag.</span></div>
+            <p class="hint muted" id="plan-hint" style="font-size:14px;margin:var(--s3) 0 0"></p>
             <div class="field" data-key="grace" data-kind="number"><label for="in-grace">Tilgungsfreie Zeit (Jahre) <span class="val" data-out="grace"></span></label><input id="in-grace" name="grace" type="number" inputmode="numeric" min="0" max="50" step="1"></div>
             <div class="field" data-key="term" data-kind="select"><label for="in-term">Danach Tilgung monatlich über</label><select id="in-term" name="term"><option value="5">5 Jahre</option><option value="10">10 Jahre</option><option value="20">20 Jahre</option></select></div>
             <div class="field" data-key="variant" data-kind="radio"><span class="lbl" id="lbl-variant">Tilgungsvariante</span>
@@ -307,6 +316,27 @@ footer .wrap { display:flex; justify-content:space-between; flex-wrap:wrap; gap:
                 <label><input type="radio" name="variant" value="A"><span><b>A</b> · Raten aus dem Einkommen (meine Sparrate fällt in dieser Zeit weg)</span></label>
                 <label><input type="radio" name="variant" value="B"><span><b>B</b> · Raten durch Verkauf aus dem ETF (anteilig versteuert)</span></label>
               </div></div>
+          </div>
+
+          <div class="card" id="card-live">
+            <h3>ETF-Kurs live</h3>
+            <div class="field"><label for="in-etfSymbol">Yahoo-Finance-Symbol oder Name</label>
+              <div class="pair" style="grid-template-columns:1fr auto"><input id="in-etfSymbol" name="etfSymbol" type="text" autocomplete="off" spellcheck="false" placeholder="z. B. VWCE.DE"><button class="btn small" type="button" id="btn-search">Suchen</button></div>
+              <span class="hint">Symbol wie bei Yahoo Finanzen, zum Beispiel VWCE.DE (Vanguard FTSE All-World, Xetra).</span>
+              <div id="search-results" class="toolbar" aria-live="polite"></div></div>
+            <div class="field"><label for="in-etfShares">Anteile im eigenen Depot</label><input id="in-etfShares" name="etfShares" type="number" inputmode="decimal" min="0" step="0.001"></div>
+            <div class="field"><label for="in-loanShares">Anteile aus dem Darlehen</label><input id="in-loanShares" name="loanShares" type="number" inputmode="decimal" min="0" step="0.001"><span class="hint">0, solange das Darlehensgeld noch nicht investiert ist.</span></div>
+            <div class="toolbar"><button class="btn primary" type="button" id="btn-quote">Kurs aktualisieren</button></div>
+            <p class="status" id="quote-status" role="status" aria-live="polite"></p>
+            <div id="quote-note"></div>
+            <details>
+              <summary>Abrufweg</summary>
+              <div>
+                <p class="muted" style="font-size:14px">Der Kurs wird nur auf Knopfdruck abgerufen, nie automatisch. Yahoo blockiert Abrufe aus fremden Webseiten oft; dann versucht die App die nächsten Wege.</p>
+                <div class="field"><label for="in-proxy">Eigener Proxy (optional)</label><input id="in-proxy" type="text" autocomplete="off" spellcheck="false" placeholder="https://…workers.dev/?url={url}"><span class="hint">Anleitung für einen kostenlosen Cloudflare Worker im README.</span></div>
+                <label class="check-inline"><input type="checkbox" id="in-allowPublic"> Öffentlichen Proxy allorigins.win als letzten Weg erlauben (das Symbol wird dann über diesen Dienst abgefragt)</label>
+              </div>
+            </details>
           </div>
 
           <div class="card">
@@ -344,19 +374,54 @@ footer .wrap { display:flex; justify-content:space-between; flex-wrap:wrap; gap:
       </div>
     </section>
 
-    <!-- № 03 Szenarien -->
+    <!-- № 03 Rückzahlung -->
     <section role="tabpanel" id="panel-3" aria-labelledby="tab-3" tabindex="0" hidden>
       <div class="section">
-        <h2 class="label"><span class="no">№ 03</span> — Szenarien</h2>
+        <h2 class="label"><span class="no">№ 03</span> — Rückzahlung</h2>
+        <p class="prose">Entnahmeplan für die Rückzahlung an die Eltern: ab wann und wie viel pro Monat. <span id="plan-variant-text"></span></p>
+        <form id="plan-form" novalidate>
+          <div class="field" data-kind="radio"><span class="lbl" id="lbl-planMode">Art des Plans</span>
+            <div class="radio" role="radiogroup" aria-labelledby="lbl-planMode">
+              <label><input type="radio" name="planMode" value="standard"><span><b>Standard</b> · tilgungsfreie Zeit, dann gleiche Raten (Einstellung in №&nbsp;01)</span></label>
+              <label><input type="radio" name="planMode" value="simple"><span><b>Einfach</b> · fester Betrag pro Monat ab einem Monat</span></label>
+              <label><input type="radio" name="planMode" value="custom"><span><b>Individuell</b> · jeden Monat einzeln anpassen</span></label>
+            </div></div>
+          <div class="cols" id="plan-simple">
+            <div class="field"><label for="in-planAmount">Auszahlung pro Monat (€)</label><input id="in-planAmount" name="planAmount" type="number" inputmode="decimal" min="0" step="10"></div>
+            <div class="field"><label for="in-planStart">ab Monat</label><input id="in-planStart" name="planStart" type="month" placeholder="JJJJ-MM" pattern="\d{4}-\d{2}" aria-describedby="plan-start-hint"><span class="hint" id="plan-start-hint">Leer = direkt nach der tilgungsfreien Zeit aus №&nbsp;01.</span></div>
+          </div>
+        </form>
+        <div id="plan-custom" hidden>
+          <div class="toolbar">
+            <button class="btn small" type="button" id="btn-plan-generate">Aus „Betrag ab Monat“ erzeugen</button>
+            <button class="btn small" type="button" id="btn-plan-add">Monat hinzufügen</button>
+            <button class="btn small" type="button" id="btn-plan-clear">Alle Monate löschen</button>
+          </div>
+          <p class="muted" style="font-size:14px;margin:0 0 var(--s2)">Erzeugt einen Plan aus den Feldern „Auszahlung pro Monat“ und „ab Monat“; danach jeden Monat einzeln ändern.</p>
+          <div class="table-scroll" style="max-height:420px;overflow-y:auto"><table class="data" id="table-plan-edit"></table></div>
+        </div>
+        <div class="kpis" id="plan-kpis" style="margin-top:var(--s5)"></div>
+        <div class="table-scroll"><table class="data" id="table-plan-years"></table></div>
+        <details id="plan-months-details" style="margin-top:var(--s4)">
+          <summary>Alle Monate anzeigen</summary>
+          <div><div class="table-scroll"><table class="data" id="table-plan-months"></table></div></div>
+        </details>
+      </div>
+    </section>
+
+    <!-- № 04 Szenarien -->
+    <section role="tabpanel" id="panel-4" aria-labelledby="tab-4" tabindex="0" hidden>
+      <div class="section">
+        <h2 class="label"><span class="no">№ 04</span> — Szenarien</h2>
         <p class="prose">Krypto-Wachstum und Sparrate variiert, alle anderen Eingaben wie in № 01. Die markierte Zeile entspricht den aktuellen Eingaben.</p>
         <div class="table-scroll"><table class="data" id="table-scenarios"></table></div>
       </div>
     </section>
 
-    <!-- № 04 Risiko -->
-    <section role="tabpanel" id="panel-4" aria-labelledby="tab-4" tabindex="0" hidden>
+    <!-- № 05 Risiko -->
+    <section role="tabpanel" id="panel-5" aria-labelledby="tab-5" tabindex="0" hidden>
       <div class="section">
-        <h2 class="label"><span class="no">№ 04</span> — Risiko</h2>
+        <h2 class="label"><span class="no">№ 05</span> — Risiko</h2>
         <p class="status" id="mc-status" role="status" aria-live="polite"></p>
         <div id="note-risiko"></div>
         <div class="kpis" id="risk-kpis"></div>
@@ -370,10 +435,10 @@ footer .wrap { display:flex; justify-content:space-between; flex-wrap:wrap; gap:
       </div>
     </section>
 
-    <!-- № 05 Zinsgrenze -->
-    <section role="tabpanel" id="panel-5" aria-labelledby="tab-5" tabindex="0" hidden>
+    <!-- № 06 Zinsgrenze -->
+    <section role="tabpanel" id="panel-6" aria-labelledby="tab-6" tabindex="0" hidden>
       <div class="section">
-        <h2 class="label"><span class="no">№ 05</span> — Zinsgrenze</h2>
+        <h2 class="label"><span class="no">№ 06</span> — Zinsgrenze</h2>
         <p class="prose" id="be-text"></p>
         <figure>
           <div class="chart" id="chart-rates" role="img" aria-label="Median-Gewinn und 5-%-Fall nach Darlehenszins"></div>
@@ -384,19 +449,19 @@ footer .wrap { display:flex; justify-content:space-between; flex-wrap:wrap; gap:
       </div>
     </section>
 
-    <!-- № 06 Nach 100.000 € -->
-    <section role="tabpanel" id="panel-6" aria-labelledby="tab-6" tabindex="0" hidden>
+    <!-- № 07 Nach 100.000 € -->
+    <section role="tabpanel" id="panel-7" aria-labelledby="tab-7" tabindex="0" hidden>
       <div class="section">
-        <h2 class="label"><span class="no">№ 06</span> — Nach 100.000 €</h2>
+        <h2 class="label"><span class="no">№ 07</span> — Nach 100.000 €</h2>
         <p class="prose">Zeit bis zu den nächsten Meilensteinen mit Darlehen (brutto, nominal), gerechnet ab heute. Krypto, Darlehen und Tilgung wie in № 01; die Rechnung läuft hier auch über den Horizont hinaus.</p>
         <div class="table-scroll"><table class="data" id="table-milestones"></table></div>
       </div>
     </section>
 
-    <!-- № 07 Gespräch mit den Eltern -->
-    <section role="tabpanel" id="panel-7" aria-labelledby="tab-7" tabindex="0" hidden>
+    <!-- № 08 Gespräch mit den Eltern -->
+    <section role="tabpanel" id="panel-8" aria-labelledby="tab-8" tabindex="0" hidden>
       <div class="section">
-        <h2 class="label"><span class="no">№ 07</span> — Gespräch mit den Eltern</h2>
+        <h2 class="label"><span class="no">№ 08</span> — Gespräch mit den Eltern</h2>
         <div class="note" role="note"><p><span class="cap">STEUER</span>Ein zinsloses Darlehen kann als Schenkung des Zinsvorteils gelten. Vor Vertragsabschluss mit Steuerberater oder Notar klären.</p></div>
         <div id="talk">
           <details>
@@ -406,13 +471,13 @@ footer .wrap { display:flex; justify-content:space-between; flex-wrap:wrap; gap:
               <div class="row"><span><b>Breit gestreut:</b> Ein All-World-ETF verteilt das Geld auf Tausende Unternehmen weltweit, kein Einzelwert-Risiko, geringe Kosten.</span></div>
               <div class="row"><span><b>Klare Rückzahlung:</b> Nach der tilgungsfreien Zeit wird monatlich in festen Raten getilgt (siehe Rate in №&nbsp;02).</span></div>
               <div class="row"><span><b>Transparenz:</b> Ich kann jederzeit zeigen, wo das Geld liegt und wie es sich entwickelt.</span></div>
-              <div class="row"><span><b>Rechnung offen gelegt:</b> Diese Gedankenrechnung zeigt nicht nur den Mittelwert, sondern auch schlechte Fälle (№&nbsp;04) und wie stark ein Zins den Vorteil auffrisst (№&nbsp;05).</span></div>
+              <div class="row"><span><b>Rechnung offen gelegt:</b> Diese Gedankenrechnung zeigt nicht nur den Mittelwert, sondern auch schlechte Fälle (№&nbsp;05) und wie stark ein Zins den Vorteil auffrisst (№&nbsp;06).</span></div>
             </div>
           </details>
           <details>
             <summary>Ehrliche Risiken</summary>
             <div>
-              <div class="row prio"><span><b>Kursverluste:</b> Nach zehn Jahren kann der ETF weniger wert sein als das Darlehen. Die Wahrscheinlichkeit und die Höhe der Lücke stehen in №&nbsp;04.</span></div>
+              <div class="row prio"><span><b>Kursverluste:</b> Nach zehn Jahren kann der ETF weniger wert sein als das Darlehen. Die Wahrscheinlichkeit und die Höhe der Lücke stehen in №&nbsp;05.</span></div>
               <div class="row"><span><b>Schlechter Zeitpunkt:</b> Fällt ein Crash in die Tilgungsphase, muss in Variante B zu niedrigen Kursen verkauft werden.</span></div>
               <div class="row"><span><b>Mein Einkommen:</b> In Variante A kommen die Raten aus meinem Einkommen. Arbeitslosigkeit, Krankheit oder Elternzeit können das erschweren.</span></div>
               <div class="row"><span><b>Familienfrieden:</b> Geld unter Verwandten kann Beziehungen belasten, besonders wenn es schlecht läuft oder Geschwister sich benachteiligt fühlen.</span></div>
@@ -438,7 +503,7 @@ footer .wrap { display:flex; justify-content:space-between; flex-wrap:wrap; gap:
               <div class="row"><span><b>„Warum nicht einfach selbst sparen?“</b> Das tue ich weiter. Das Darlehen bringt Zeit im Markt, die ich mit der Sparrate allein nicht aufholen kann; der Unterschied steht in №&nbsp;02.</span></div>
               <div class="row"><span><b>„Wir brauchen das Geld vielleicht selbst.“</b> Dafür gibt es die Sonderkündigung. Ein ETF lässt sich an jedem Börsentag verkaufen.</span></div>
               <div class="row"><span><b>„Ist das gegenüber den Geschwistern fair?“</b> Ein Darlehen ist keine Schenkung, es wird vollständig zurückgezahlt. Trotzdem offen besprechen und schriftlich festhalten.</span></div>
-              <div class="row"><span><b>„Sollten wir nicht wenigstens Zinsen nehmen?“</b> Möglich. № 05 zeigt, bis zu welchem Zins sich der Vorschlag im Median noch lohnt.</span></div>
+              <div class="row"><span><b>„Sollten wir nicht wenigstens Zinsen nehmen?“</b> Möglich. №&nbsp;06 zeigt, bis zu welchem Zins sich der Vorschlag im Median noch lohnt.</span></div>
             </div>
           </details>
         </div>

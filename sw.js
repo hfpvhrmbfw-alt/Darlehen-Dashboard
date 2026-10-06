@@ -1,6 +1,6 @@
 // Service Worker: alle App-Dateien beim Installieren vorab speichern, danach Cache zuerst.
 // Bei jeder Änderung an einer App-Datei VERSION erhöhen, damit die UPDATE-Note erscheint.
-const VERSION = '1.0.0';
+const VERSION = '1.1.0';
 const PREFIX = 'darlehen-tracker-';
 const CACHE = `${PREFIX}${VERSION}`;
 
@@ -10,6 +10,7 @@ const ASSETS = [
   './app.js',
   './calc.js',
   './worker.js',
+  './quote.js',
   './manifest.webmanifest',
   './icons/favicon.svg',
   './icons/icon-192.png',
@@ -48,7 +49,9 @@ self.addEventListener('fetch', (event) => {
   const req = event.request;
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
-  if (url.origin !== self.location.origin) return; // fremde Adressen gibt es in der App nicht
+  // Fremde Adressen (Kursabruf bei Yahoo oder über einen Proxy) gehen immer direkt ans Netz und werden nie gespeichert.
+  if (url.origin !== self.location.origin) return;
+  if (req.cache === 'no-store') return;
 
   event.respondWith((async () => {
     const cache = await caches.open(CACHE);

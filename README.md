@@ -13,11 +13,13 @@ index.html             Markup und CSS (Hausstil Web v1.2, Hell/Dunkel)
 app.js                 Oberfläche, Zustand (localStorage), Diagramme (Inline-SVG)
 calc.js                Rechenkern als reine Funktionen ohne DOM
 worker.js              Web Worker für die Monte-Carlo-Simulation
+quote.js               Kursabruf bei Yahoo Finance (nur auf Knopfdruck)
+proxy/                 Vorlage für einen eigenen Proxy (Cloudflare Worker), nicht Teil der App
 sw.js                  Service Worker (vorab zwischenspeichern, Cache zuerst)
 manifest.webmanifest   PWA-Manifest
 fonts/                 woff2, selbst gehostet (SIL Open Font License, Lizenztexte liegen bei)
 icons/                 favicon.svg, 192, 512, maskable 512, apple-touch-icon 180
-tests/calc.test.mjs    Prüfwerte, ausführen mit node --test
+tests/                 Prüfwerte und Tests für Rechenkern, Rückzahlungsplan und Kursabruf (node --test)
 package.json           nur "type": "module" und das Test-Skript, keine Pakete
 .github/workflows/     test.yml führt nur die Tests aus (kein Deployment)
 ```
@@ -55,10 +57,39 @@ Monatsschritte über den Horizont (Zielalter − Alter heute):
 
 Annahmen, die nicht ausdrücklich vorgegeben waren: Krypto wird ohne Steuer und ohne Schwankung gerechnet; der Einstandswert des heutigen ETF-Bestands gilt als gleich seinem Wert; „Depot reicht nicht“ in Variante B heißt, dass das Darlehens-Depot nicht alle Raten trägt.
 
+## Rückzahlung (Entnahmeplan)
+
+Im Tab № 03 gibt es drei Arten, das Darlehen an die Eltern zurückzuzahlen:
+
+- **Standard:** tilgungsfreie Zeit, danach gleiche Raten über 5, 10 oder 20 Jahre (Felder in № 01).
+- **Einfach:** fester Betrag pro Monat ab einem Monat (zum Beispiel 400 € ab 01/2030), bis die Schuld getilgt ist.
+- **Individuell:** jeder Monat einzeln. „Aus ‚Betrag ab Monat‘ erzeugen“ legt die Monate an, danach lässt sich jeder Betrag ändern, ein Monat hinzufügen oder löschen.
+
+Die App zeigt erste und letzte Auszahlung, Summe, Restschuld am Horizont, eine Jahresübersicht und auf Wunsch alle Monate. In Variante B stehen dabei auch verkaufte Beträge und Steuer. Alle anderen Abschnitte (Überblick, Risiko, Zinsgrenze) rechnen mit dem gewählten Plan.
+
+## ETF-Kurs live
+
+In № 01 unter „ETF-Kurs live“ das Yahoo-Finance-Symbol eintragen (zum Beispiel `VWCE.DE`) oder einen Namen suchen, dazu die Anzahl der Anteile. „Kurs aktualisieren“ holt den aktuellen Kurs und setzt „ETF-Bestand heute“ und „Darlehensgeld im ETF heute“ auf Anteile × Kurs. Kurs, Zeitpunkt und Abrufweg werden gespeichert; offline rechnet die App mit dem letzten Kurs weiter. Yahoo liefert je nach Börse leicht verzögerte Kurse.
+
+Yahoo erlaubt den direkten Abruf aus einer fremden Webseite meistens nicht (CORS). Die App versucht deshalb nacheinander:
+
+1. direkt bei Yahoo,
+2. einen eigenen Proxy, wenn unter „Abrufweg“ eingetragen,
+3. den öffentlichen Proxy allorigins.win, wenn erlaubt (Standard: erlaubt; abschaltbar). Er sieht dabei nur das abgefragte Symbol.
+
+### Eigener Proxy für den Kursabruf (empfohlen, kostenlos)
+
+1. Auf https://dash.cloudflare.com ein kostenloses Konto anlegen, dann **Workers & Pages → Create → Worker**.
+2. Den Inhalt von `proxy/cloudflare-worker.js` einfügen und **Deploy** klicken.
+3. Die Adresse des Workers (zum Beispiel `https://yahoo-proxy.<name>.workers.dev`) in der App unter „Abrufweg“ so eintragen: `https://yahoo-proxy.<name>.workers.dev/?url={url}`.
+
+Der Worker leitet nur die beiden Yahoo-Adressen der App weiter und antwortet nur der eigenen Seite.
+
 ## Datenschutz und Netz
 
 - Eingaben bleiben im Browser (localStorage). Export und Import als JSON-Datei.
-- Nach dem ersten Laden kommen alle Dateien aus dem Service-Worker-Cache. Die App selbst stellt keine Anfragen; der Browser prüft nur bei einem Seitenaufruf, ob sich `sw.js` geändert hat (gleiche Adresse, nötig für die UPDATE-Note).
+- Nach dem ersten Laden kommen alle Dateien aus dem Service-Worker-Cache. Die einzige Fremdanfrage ist der Kursabruf, und nur wenn man „Kurs aktualisieren“ oder „Suchen“ drückt; diese Antworten werden nie zwischengespeichert.
+- Der Browser prüft beim Öffnen selbst, ob sich `sw.js` geändert hat (gleiche Adresse, nötig für die UPDATE-Note).
 
 ## Neue Version veröffentlichen
 

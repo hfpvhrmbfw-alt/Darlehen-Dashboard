@@ -1,13 +1,19 @@
 // Oberfläche, Zustand und Diagramme des Darlehen-Trackers.
 import {
-  DEFAULTS, TARGET,
+  DEFAULTS as CALC_DEFAULTS, TARGET,
   compare, milestones, validate, pick, toModel,
+  currentMonth, monthDiff, addMonths, repaymentPlan, buildCustomPlan,
   fmtNum, fmtEur, fmtPct, fmtYears,
 } from './calc.js';
+import { fetchQuote, searchSymbols, PUBLIC_PROXY_NAME } from './quote.js';
+
+// Eingaben der App: Rechenkern plus Kursabruf (Symbol und Anteile)
+const DEFAULTS = Object.freeze({ ...CALC_DEFAULTS, etfSymbol: '', etfShares: 0, loanShares: 0 });
+const TEXT_KEYS = ['variant', 'planMode', 'planStart', 'planCustom', 'etfSymbol'];
 
 const STORE_KEY = 'darlehen-tracker:v1';
 const RATES = [0, 1, 2, 3, 4, 5, 6, 7, 8];
-const NUM_KEYS = Object.keys(DEFAULTS).filter((k) => k !== 'variant');
+const NUM_KEYS = Object.keys(DEFAULTS).filter((k) => !TEXT_KEYS.includes(k));
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -32,18 +38,39 @@ function sanitize(raw) {
     }
   }
   if (raw.variant === 'A' || raw.variant === 'B') out.variant = raw.variant;
+  if (['standard', 'simple', 'custom'].includes(raw.planMode)) out.planMode = raw.planMode;
+  if (typeof raw.planStart === 'string' && (raw.planStart === '' || /^\d{4}-\d{2}$/.test(raw.planStart))) out.planStart = raw.planStart;
+  if (Array.isArray(raw.planCustom)) {
+    out.planCustom = raw.planCustom
+      .filter((r) => r && /^\d{4}-\d{2}$/.test(String(r.m)) && Number.isFinite(Number(r.a)))
+      .slice(0, 1200)
+      .map((r) => ({ m: String(r.m), a: Math.max(0, Number(r.a)) }));
+  }
+  if (typeof raw.etfSymbol === 'string') out.etfSymbol = raw.etfSymbol.slice(0, 60);
   return out;
+}
+/** Eingaben für den Rechenkern, mit heutigem Monat als Bezugspunkt. */
+function inp(extra = {}) { return { ...state.input, refMonth: currentMonth(), ...extra }; }
+function fmtMonth(ym) {
+  if (!ym) return '–';
+  const [y, mo] = ym.split('-').map(Number);
+  return new Date(y, mo - 1, 1).toLocaleDateString('de-DE', { month: 'short', year: 'numeric' });
 }
 
 const saved = storeGet(STORE_KEY) || {};
 const state = {
   input: sanitize(saved.input),
   view: { net: !!(saved.view && saved.view.net), real: !!(saved.view && saved.view.real) },
-  tab: Number(saved.tab) >= 1 && Number(saved.tab) <= 7 ? Number(saved.tab) : 1,
+  tab: Number(saved.tab) >= 1 && Number(saved.tab) <= 8 ? Number(saved.tab) : 1,
   theme: ['auto', 'light', 'dark'].includes(saved.theme) ? saved.theme : 'auto',
+  settings: {
+    proxy: saved.settings && typeof saved.settings.proxy === 'string' ? saved.settings.proxy : '',
+    allowPublic: saved.settings ? saved.settings.allowPublic !== false : true,
+  },
+  quote: saved.quote && Number.isFinite(saved.quote.price) ? saved.quote : null,
 };
 function persist() {
-  storeSet(STORE_KEY, { input: state.input, view: state.view, tab: state.tab, theme: state.theme });
+  storeSet(STORE_KEY, { input: state.input, view: state.view, tab: state.tab, theme: state.theme, settings: state.settings, quote: state.quote });
 }
 
 // ---------- Format-Helfer ----------
@@ -114,7 +141,7 @@ $$('[data-view]').forEach((b) => b.addEventListener('click', () => {
 }));
 function syncView() {
   $$('[data-view]').forEach((b) => b.setAttribute('aria-pressed', String(state.view[b.dataset.view] === (b.dataset.value === '1'))));
-  $('#view-desc').textContent = `Werte in № 02 und № 03: ${viewLabel()}.`;
+  $('#view-desc').textContent = `Werte in № 02 und № 04: ${viewLabel()}.`;
 }
 
 // ---------- Formular ----------
@@ -124,7 +151,7 @@ form.addEventListener('submit', (e) => e.preventDefault());
 
 function fmtField(key, v) {
   if (['cryptoGrowth', 'etfReturn', 'loanRate', 'volatility'].includes(key)) return `${fmtNum(v, 1)} %`;
-  if (['crypto', 'etf', 'savings', 'loan'].includes(key)) return fmtEur(v);
+  if (['crypto', 'etf', 'savings', 'loan', 'loanEtfNow'].includes(key)) return fmtEur(v);
   if (key === 'grace') return `${fmtNum(v, 0)} J.`;
   return fmtNum(v, 0);
 }
@@ -148,22 +175,32 @@ function syncForm() {
     if (out) out.textContent = fmtField(key, v);
     if (el && el.type === 'range') el.setAttribute('aria-valuetext', fmtField(key, v));
   }
-  const m = toModel(state.input);
+  const m = toModel(inp());
+  const std = state.input.planMode === 'standard';
+  ['grace', 'term'].forEach((k) => { const el = $(`[name="${k}"]`, form); if (el) el.disabled = !std; });
+  $('#plan-hint').textContent = std ? 'Rückzahlung: Standard-Plan (unten). Eigenen Plan in № 03 festlegen.' : `Rückzahlung: ${state.input.planMode === 'simple' ? 'einfacher' : 'individueller'} Plan aus № 03; die beiden Felder unten gelten dann nicht.`;
+  if (document.activeElement !== $('#in-etfSymbol')) $('#in-etfSymbol').value = state.input.etfSymbol;
+  ['etfShares', 'loanShares'].forEach((k) => { const el = $(`#in-${k}`); if (document.activeElement !== el) el.value = String(state.input[k]); });
+  $('#in-proxy').value = state.settings.proxy;
+  $('#in-allowPublic').checked = state.settings.allowPublic;
+  syncPlanForm();
   $('#horizon-out').textContent = `Bis Alter ${fmtNum(state.input.ageTarget, 0)}, das sind ${m.horizonYears} Jahre ab heute.`;
 }
 form.addEventListener('input', (e) => {
   const el = e.target;
   if (!el.name) return;
   if (el.name === 'variant') state.input.variant = el.value;
+  else if (el.name === 'etfSymbol') { state.input.etfSymbol = el.value.trim(); persist(); return; }
   else {
     if (el.value === '') return; // halb getippte Zahl nicht übernehmen
     const v = Number(el.value);
     state.input[el.name] = Number.isFinite(v) ? v : el.value;
+    if ((el.name === 'etfShares' || el.name === 'loanShares') && state.quote) applyQuote(false);
   }
   persist(); syncForm(); update();
 });
 form.addEventListener('change', (e) => {
-  if (e.target.value === '' && e.target.name && e.target.name !== 'variant') { e.target.value = String(state.input[e.target.name]); }
+  if (e.target.value === '' && e.target.name && !['variant', 'etfSymbol'].includes(e.target.name)) { e.target.value = String(state.input[e.target.name]); }
 });
 $$('[data-loan]').forEach((b) => b.addEventListener('click', () => { state.input.loan = Number(b.dataset.loan); persist(); syncForm(); update(); }));
 $$('[data-preset]').forEach((b) => b.addEventListener('click', () => {
@@ -180,7 +217,7 @@ function setIo(text) {
 }
 $('#btn-reset').addEventListener('click', () => {
   state.input = { ...DEFAULTS };
-  persist(); syncForm(); update(); setIo('Alle Eingaben auf die Ausgangswerte zurückgesetzt.');
+  persist(); syncForm(); renderPlanEditor(); update(); setIo('Alle Eingaben auf die Ausgangswerte zurückgesetzt.');
 });
 $('#btn-export').addEventListener('click', () => {
   const data = { app: 'darlehen-tracker', version: 1, exportiert: new Date().toISOString(), eingaben: state.input };
@@ -202,7 +239,7 @@ $('#file-import').addEventListener('change', async (e) => {
     const raw = data && typeof data === 'object' ? (data.eingaben || data.input || data) : null;
     if (!raw || !Object.keys(raw).some((k) => k in DEFAULTS)) throw new Error('keine bekannten Felder');
     state.input = sanitize(raw);
-    persist(); syncForm(); update();
+    persist(); syncForm(); renderPlanEditor(); update();
     setIo(`JSON importiert: ${file.name}.`);
   } catch (err) {
     setIo(`Import fehlgeschlagen: Die Datei ist kein gültiger Export (${err.message}).`);
@@ -419,9 +456,11 @@ function renderOverview() {
   const age = fmtNum(state.input.ageTarget, 0);
   const m = r.model;
   const startYear = m.graceMonths / 12;
-  const rateSub = m.loan > 0
-    ? `ab Jahr ${fmtNum(startYear + 1, 0)} für ${fmtNum(m.termMonths / 12, 0)} Jahre, Variante ${m.variant}${m.i > 0 ? `; dazu Zinsen anfangs ${fmtEur(r.interestMonthly)} pro Monat` : ''}`
-    : 'kein Darlehen';
+  const interest = m.i > 0 ? `; dazu Zinsen anfangs ${fmtEur(r.interestMonthly)} pro Monat` : '';
+  const rateSub = m.loan <= 0 ? 'kein Darlehen'
+    : m.plan.mode === 'standard'
+      ? `ab Jahr ${fmtNum(startYear + 1, 0)} für ${fmtNum(m.termMonths / 12, 0)} Jahre, Variante ${m.variant}${interest}`
+      : `${m.plan.mode === 'simple' ? 'einfacher' : 'individueller'} Plan ab ${fmtMonth(addMonths(m.ref, m.graceMonths + 1))}, Variante ${m.variant}${interest}`;
   const ageAt = (y) => (y === null ? '' : `mit ${fmtNum(state.input.ageNow + y, 0)} Jahren`);
   $('#kpis').innerHTML = [
     kpi(`Vermögen mit ${age} ohne Darlehen`, fmtEur(r.finalWithout)),
@@ -442,7 +481,7 @@ function renderScenarios() {
   let rows = '';
   for (const g of growths) {
     for (const s of savings) {
-      const r = compare({ ...state.input, cryptoGrowth: g, savings: s }, state.view);
+      const r = compare(inp({ cryptoGrowth: g, savings: s }), state.view);
       const cur = g === Number(state.input.cryptoGrowth) && s === Number(state.input.savings);
       rows += `<tr${cur ? ' class="mark"' : ''}><th scope="row">${fmtNum(g, 0)} %${cur ? ' <span class="tag acc">aktuell</span>' : ''}</th><td class="num">${fmtEur(s)}</td>`
         + `<td class="num">${fmtYears(r.yearsWithout)}</td><td class="num">${fmtYears(r.yearsWith)}</td>`
@@ -462,7 +501,7 @@ function renderMilestones() {
   let rows = '';
   for (const s of [200, 400]) {
     for (const r of [5, 6, 7]) {
-      const ys = milestones({ ...state.input, savings: s, etfReturn: r }, targets, maxYears);
+      const ys = milestones(inp({ savings: s, etfReturn: r }), targets, maxYears);
       const cur = s === Number(state.input.savings) && r === Number(state.input.etfReturn);
       rows += `<tr${cur ? ' class="mark"' : ''}><th scope="row">${fmtEur(s)}${cur ? ' <span class="tag acc">aktuell</span>' : ''}</th><td class="num">${fmtNum(r, 0)} %</td>`
         + ys.map((y) => `<td class="num">${y === null ? `über ${maxYears} J.` : `${fmtNum(y, 1)} J.<br><span class="muted">Alter ${fmtNum(state.input.ageNow + y, 0)}</span>`}</td>`).join('')
@@ -502,7 +541,7 @@ function runMc() {
   if (!worker) startWorker();
   jobId++; busy = true;
   $('#mc-status').textContent = 'Simulation läuft … 0 %';
-  worker.postMessage({ id: jobId, input: { ...state.input }, rates: RATES });
+  worker.postMessage({ id: jobId, input: inp(), rates: RATES });
 }
 
 function renderRisk() {
@@ -557,11 +596,203 @@ function renderRates() {
   drawRates();
 }
 
+// ---------- № 03 Rückzahlung (Entnahmeplan) ----------
+
+const planForm = $('#plan-form');
+planForm.addEventListener('submit', (e) => e.preventDefault());
+function syncPlanForm() {
+  $$('input[name="planMode"]', planForm).forEach((r) => { r.checked = r.value === state.input.planMode; });
+  const amount = $('#in-planAmount'), start = $('#in-planStart');
+  if (document.activeElement !== amount) amount.value = String(state.input.planAmount);
+  if (document.activeElement !== start) start.value = state.input.planStart;
+  $('#plan-custom').hidden = state.input.planMode !== 'custom';
+  $('#plan-variant-text').textContent = state.input.variant === 'A'
+    ? 'Variante A: Die Raten kommen aus dem Einkommen und fehlen in der Sparrate.'
+    : 'Variante B: Die Raten werden durch Verkauf aus dem ETF bezahlt; auf den Gewinnanteil fällt Steuer an.';
+}
+planForm.addEventListener('input', (e) => {
+  const el = e.target;
+  if (el.name === 'planMode') {
+    state.input.planMode = el.value;
+    if (el.value === 'custom' && !state.input.planCustom.length) generateCustomPlan();
+    renderPlanEditor();
+  } else if (el.name === 'planAmount') {
+    if (el.value === '') return;
+    state.input.planAmount = Math.max(0, Number(el.value) || 0);
+  } else if (el.name === 'planStart') {
+    if (el.value !== '' && !/^\d{4}-\d{2}$/.test(el.value)) return;
+    state.input.planStart = el.value;
+  } else return;
+  persist(); syncForm(); update();
+});
+function defaultStart() {
+  const m = toModel(inp({ planMode: 'standard' }));
+  return state.input.planStart || addMonths(m.ref, m.graceMonths + 1);
+}
+function generateCustomPlan() {
+  const amount = Number(state.input.planAmount) > 0 ? Number(state.input.planAmount) : toModel(inp({ planMode: 'standard' })).loan / Math.max(1, Number(state.input.term) * 12);
+  state.input.planCustom = buildCustomPlan(Number(state.input.loan), amount, defaultStart());
+}
+$('#btn-plan-generate').addEventListener('click', () => { generateCustomPlan(); persist(); renderPlanEditor(); update(); });
+$('#btn-plan-add').addEventListener('click', () => {
+  const rows = state.input.planCustom;
+  const next = rows.length ? addMonths(rows.reduce((a, r) => (r.m > a ? r.m : a), rows[0].m), 1) : defaultStart();
+  rows.push({ m: next, a: rows.length ? rows[rows.length - 1].a : Number(state.input.planAmount) || 0 });
+  persist(); renderPlanEditor(); update();
+  const inputs = $$('#table-plan-edit input[data-f="a"]'); if (inputs.length) inputs[inputs.length - 1].focus();
+});
+$('#btn-plan-clear').addEventListener('click', () => { state.input.planCustom = []; persist(); renderPlanEditor(); update(); });
+
+function renderPlanEditor() {
+  const rows = state.input.planCustom;
+  const sum = rows.reduce((s, r) => s + (Number(r.a) || 0), 0);
+  $('#table-plan-edit').innerHTML = `<caption>Tabelle: ${rows.length} Monate, Summe ${fmtEur(sum, 2)} von ${fmtEur(state.input.loan)} Darlehen</caption>
+    <thead><tr><th scope="col">Monat</th><th scope="col" class="num">Auszahlung (€)</th><th scope="col"><span class="vh">Aktion</span></th></tr></thead>
+    <tbody>${rows.map((r, i) => `<tr>
+      <td><input type="month" data-i="${i}" data-f="m" value="${esc(r.m)}" aria-label="Monat ${i + 1}" pattern="\\d{4}-\\d{2}" placeholder="JJJJ-MM"></td>
+      <td class="num"><input type="number" data-i="${i}" data-f="a" value="${r.a}" min="0" step="10" inputmode="decimal" aria-label="Auszahlung ${fmtMonth(r.m)}"></td>
+      <td><button class="btn small" type="button" data-del="${i}" aria-label="${fmtMonth(r.m)} löschen">Löschen</button></td></tr>`).join('')
+      || '<tr><td colspan="3" class="muted">Noch keine Monate. „Aus „Betrag ab Monat“ erzeugen“ oder „Monat hinzufügen“.</td></tr>'}</tbody>`;
+}
+$('#table-plan-edit').addEventListener('input', (e) => {
+  const el = e.target, i = Number(el.dataset.i), row = state.input.planCustom[i];
+  if (!row) return;
+  if (el.dataset.f === 'm') { if (!/^\d{4}-\d{2}$/.test(el.value)) return; row.m = el.value; }
+  else { if (el.value === '') return; row.a = Math.max(0, Number(el.value) || 0); }
+  persist(); update();
+  const sum = state.input.planCustom.reduce((s, r) => s + (Number(r.a) || 0), 0);
+  $('#table-plan-edit caption').textContent = `Tabelle: ${state.input.planCustom.length} Monate, Summe ${fmtEur(sum, 2)} von ${fmtEur(state.input.loan)} Darlehen`;
+});
+$('#table-plan-edit').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-del]');
+  if (!b) return;
+  state.input.planCustom.splice(Number(b.dataset.del), 1);
+  persist(); renderPlanEditor(); update();
+});
+
+function renderPlan() {
+  const p = repaymentPlan(inp());
+  const B = p.variant === 'B';
+  if (p.loan <= 0) {
+    $('#plan-kpis').innerHTML = kpi('Darlehen', '–', 'Kein Darlehensbetrag in № 01; es gibt nichts zurückzuzahlen.');
+    $('#table-plan-years').innerHTML = ''; $('#table-plan-months').innerHTML = '';
+    return;
+  }
+  const items = [
+    kpi('Erste Auszahlung', fmtMonth(p.first), p.first ? `in ${fmtNum(monthDiff(p.ref, p.first) / 12, 1)} Jahren` : 'keine Zahlung geplant'),
+    kpi('Letzte Auszahlung', fmtMonth(p.last), p.count ? `${p.count} Monate` : ''),
+    kpi('Monatliche Auszahlung', fmtEur(p.typical, p.typical % 1 ? 2 : 0), p.mode === 'custom' ? 'erste Rate; Monate einzeln anpassbar' : 'bis die Schuld getilgt ist'),
+    kpi('Summe an die Eltern', fmtEur(p.total), `Darlehen ${fmtEur(p.loan)}`),
+    kpi('Restschuld am Horizont', fmtEur(p.debtEnd), p.debtEnd > 0.5 ? 'nicht vollständig getilgt' : 'vollständig getilgt', p.debtEnd > 0.5),
+  ];
+  if (B) items.push(kpi('Steuer auf Verkäufe', fmtEur(p.taxTotal), `verkauft aus dem ETF: ${fmtEur(p.soldTotal)}`));
+  $('#plan-kpis').innerHTML = items.join('');
+  // Jahresübersicht
+  const years = new Map();
+  for (const r of p.rows) {
+    const y = r.month.slice(0, 4);
+    const a = years.get(y) || { n: 0, pay: 0, sold: 0, tax: 0, debt: 0 };
+    a.n++; a.pay += r.pay; a.sold += r.sold; a.tax += r.tax; a.debt = r.debt;
+    years.set(y, a);
+  }
+  const bCols = (a) => (B ? `<td class="num">${fmtEur(a.sold)}</td><td class="num">${fmtEur(a.tax)}</td>` : '');
+  $('#table-plan-years').innerHTML = `<caption>Tabelle: Rückzahlung je Kalenderjahr, Variante ${p.variant}${B ? ', Verkauf aus dem ETF bei fester Rendite' : ''}</caption>
+    <thead><tr><th scope="col">Jahr</th><th scope="col" class="num">Monate</th><th scope="col" class="num">Auszahlung</th>${B ? '<th scope="col" class="num">verkauft</th><th scope="col" class="num">Steuer</th>' : ''}<th scope="col" class="num">Restschuld Jahresende</th></tr></thead>
+    <tbody>${[...years].map(([y, a]) => `<tr><th scope="row">${y}</th><td class="num">${a.n}</td><td class="num">${fmtEur(a.pay)}</td>${bCols(a)}<td class="num">${fmtEur(a.debt)}</td></tr>`).join('')
+      || `<tr><td colspan="${B ? 6 : 4}" class="muted">Keine Auszahlung im Horizont.</td></tr>`}</tbody>`;
+  const det = $('#plan-months-details');
+  const fillMonths = () => {
+    $('#table-plan-months').innerHTML = `<caption>Tabelle: alle ${p.count} Monate</caption>
+      <thead><tr><th scope="col">Monat</th><th scope="col" class="num">Auszahlung</th>${B ? '<th scope="col" class="num">verkauft</th><th scope="col" class="num">Steuer</th>' : ''}<th scope="col" class="num">Restschuld</th></tr></thead>
+      <tbody>${p.rows.map((r) => `<tr><th scope="row">${fmtMonth(r.month)}</th><td class="num">${fmtEur(r.pay, 2)}</td>${B ? `<td class="num">${fmtEur(r.sold, 2)}</td><td class="num">${fmtEur(r.tax, 2)}</td>` : ''}<td class="num">${fmtEur(r.debt, 2)}</td></tr>`).join('')}</tbody>`;
+  };
+  det.ontoggle = () => { if (det.open) fillMonths(); };
+  if (det.open) fillMonths();
+}
+
+// ---------- ETF-Kurs live (Yahoo Finance, nur auf Knopfdruck) ----------
+
+function fmtStamp(iso) {
+  if (!iso) return 'unbekannt';
+  return new Date(iso).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+function quoteSettings() { return { proxy: state.settings.proxy, allowPublic: state.settings.allowPublic }; }
+function showQuoteStatus() {
+  const q = state.quote;
+  $('#quote-status').textContent = q
+    ? `${q.symbol}: ${fmtNum(q.price, 2)} ${q.currency === 'EUR' ? '€' : q.currency} · ${q.name}${q.exchange ? `, ${q.exchange}` : ''} · Kursstand ${fmtStamp(q.time)} · abgerufen ${fmtStamp(q.fetchedAt)} über ${q.via}`
+    : 'Noch kein Kurs abgerufen.';
+}
+/** Übernimmt Anteile × Kurs in „ETF-Bestand heute“ und „Darlehensgeld im ETF heute“. */
+function applyQuote(announce = true) {
+  const q = state.quote;
+  if (!q) return;
+  if (q.currency !== 'EUR') {
+    $('#quote-note').innerHTML = noteHtml('warn', 'ACHTUNG', `Der Kurs von ${esc(q.symbol)} ist in ${esc(q.currency || 'unbekannter Währung')} angegeben. Die Rechnung läuft in Euro; bitte ein Euro-Listing wählen (zum Beispiel VWCE.DE). Die Bestände wurden nicht übernommen.`);
+    return;
+  }
+  const changed = [];
+  if (Number(state.input.etfShares) > 0) { state.input.etf = Math.round(state.input.etfShares * q.price * 100) / 100; changed.push(`ETF-Bestand heute ${fmtEur(state.input.etf, 2)}`); }
+  if (Number(state.input.loanShares) > 0) { state.input.loanEtfNow = Math.round(state.input.loanShares * q.price * 100) / 100; changed.push(`Darlehensgeld im ETF ${fmtEur(state.input.loanEtfNow, 2)}`); }
+  if (announce) {
+    $('#quote-note').innerHTML = changed.length
+      ? noteHtml('ok', 'AKTUELL', `Aus Anteilen × Kurs übernommen: ${changed.join(', ')}.`)
+      : noteHtml('info', 'HINWEIS', 'Kurs abgerufen. Trage die Anzahl deiner Anteile ein, dann rechnet die App die Bestände automatisch aus.');
+  }
+}
+$('#in-proxy').addEventListener('change', (e) => { state.settings.proxy = e.target.value.trim(); persist(); });
+$('#in-allowPublic').addEventListener('change', (e) => { state.settings.allowPublic = e.target.checked; persist(); });
+function failNote(err) {
+  const body = !navigator.onLine
+    ? 'Keine Verbindung. Gerechnet wird weiter mit dem zuletzt gespeicherten Kurs.'
+    : `Der Kurs konnte nicht abgerufen werden. Versucht wurde:</p><ul>${(err.tried || [err.message]).map((t) => `<li>${esc(t)}</li>`).join('')}</ul><p>Abhilfe: unter „Abrufweg“ einen eigenen Proxy eintragen (Anleitung im README) oder den öffentlichen Proxy erlauben. Bis dahin bleiben die zuletzt gespeicherten Werte.`;
+  return `<div class="note warn" role="alert"><p><span class="cap">ACHTUNG</span>${body}</p></div>`;
+}
+$('#btn-quote').addEventListener('click', async () => {
+  const sym = ($('#in-etfSymbol').value || '').trim();
+  state.input.etfSymbol = sym;
+  if (!sym) { $('#quote-status').textContent = 'Bitte zuerst ein Symbol eingeben, zum Beispiel VWCE.DE.'; return; }
+  const btn = $('#btn-quote');
+  btn.disabled = true; $('#quote-note').innerHTML = '';
+  $('#quote-status').textContent = `Kurs für ${sym} wird abgerufen …`;
+  try {
+    const r = await fetchQuote(sym, quoteSettings());
+    state.quote = { ...r.data, via: r.via, fetchedAt: new Date().toISOString() };
+    applyQuote(true);
+    persist(); syncForm(); update();
+  } catch (err) {
+    $('#quote-note').innerHTML = failNote(err);
+  } finally {
+    btn.disabled = false; showQuoteStatus();
+  }
+});
+$('#btn-search').addEventListener('click', async () => {
+  const q = ($('#in-etfSymbol').value || '').trim();
+  const box = $('#search-results');
+  if (!q) { box.textContent = 'Bitte einen Namen eingeben, zum Beispiel „FTSE All-World“.'; return; }
+  box.textContent = 'Suche läuft …';
+  try {
+    const r = await searchSymbols(q, quoteSettings());
+    box.innerHTML = r.data.length
+      ? r.data.map((x) => `<button class="btn small result-btn" type="button" data-sym="${esc(x.symbol)}">${esc(x.symbol)} · ${esc(x.name)}${x.exchange ? ` · ${esc(x.exchange)}` : ''}</button>`).join('')
+      : 'Keine Treffer.';
+  } catch (err) {
+    box.innerHTML = ''; $('#quote-note').innerHTML = failNote(err);
+  }
+});
+$('#search-results').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-sym]');
+  if (!b) return;
+  state.input.etfSymbol = b.dataset.sym; $('#in-etfSymbol').value = b.dataset.sym;
+  $('#search-results').innerHTML = ''; persist();
+  $('#btn-quote').click();
+});
+
 // ---------- Ablauf ----------
 
 function renderDeterministic() {
-  last = compare(state.input, state.view);
-  renderOverview(); renderScenarios(); renderMilestones(); drawOverview();
+  last = compare(inp(), state.view);
+  renderOverview(); renderPlan(); renderScenarios(); renderMilestones(); drawOverview();
 }
 function update() {
   renderWarnings();
@@ -604,6 +835,8 @@ applyTheme();
 syncView();
 syncForm();
 selectTab(state.tab);
+renderPlanEditor();
+showQuoteStatus();
 update();
 setupServiceWorker();
 window.addEventListener('storage', (e) => {
