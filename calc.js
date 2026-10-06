@@ -19,7 +19,30 @@ export const DEFAULTS = Object.freeze({
   taxRate: 26.375,      // Steuer auf ETF-Gewinn in %
   exemption: 30,        // Teilfreistellung in %
   inflation: 2,         // Inflation pro Jahr in %
+  loanEtfNow: 0,        // Darlehensgeld im ETF heute in € (0 = noch nicht investiert, dann gilt der Darlehensbetrag)
+  planMode: 'standard', // Rückzahlungsplan: standard (tilgungsfrei + Laufzeit), simple (Betrag ab Monat), custom (Monate einzeln)
+  planAmount: 500,      // einfacher Plan: Auszahlung pro Monat in €
+  planStart: '',        // einfacher Plan: erster Zahlmonat "JJJJ-MM" (leer = nach der tilgungsfreien Zeit)
+  planCustom: [],       // individueller Plan: [{ m: "JJJJ-MM", a: Betrag }]
 });
+
+/** Aktueller Monat als "JJJJ-MM" (Bezugspunkt "heute"). */
+export function currentMonth(d = new Date()) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+/** Monate von ref bis target (beide "JJJJ-MM"); null bei ungültiger Eingabe. */
+export function monthDiff(ref, target) {
+  const re = /^(\d{4})-(\d{2})$/;
+  const a = re.exec(String(ref || '')), b = re.exec(String(target || ''));
+  if (!a || !b) return null;
+  return (Number(b[1]) - Number(a[1])) * 12 + (Number(b[2]) - Number(a[2]));
+}
+/** "JJJJ-MM" plus k Monate. */
+export function addMonths(ref, k) {
+  const [y, mo] = ref.split('-').map(Number);
+  const t = y * 12 + (mo - 1) + k;
+  return `${Math.floor(t / 12)}-${String((t % 12) + 1).padStart(2, '0')}`;
+}
 
 export const TARGET = 100000;
 export const MC_RUNS = 20000;
@@ -30,17 +53,44 @@ export function toModel(input) {
   const p = { ...DEFAULTS, ...input };
   const num = (v, d) => (Number.isFinite(Number(v)) ? Number(v) : d);
   const horizonYears = Math.max(0, Math.round(num(p.ageTarget, 60) - num(p.ageNow, 30)));
+  const loan = Math.max(0, num(p.loan, 0));
+  const ref = /^\d{4}-\d{2}$/.test(String(p.refMonth || '')) ? p.refMonth : currentMonth();
+  let graceMonths = Math.max(0, Math.round(num(p.grace, 0) * 12));
+  const termMonths = Math.max(0, Math.round(num(p.term, 0) * 12));
+  // Rückzahlungsplan als Liste von Monatsbeträgen (Index k = Monate ab heute) oder Regel
+  let plan = { mode: 'standard' };
+  if (p.planMode === 'simple') {
+    const k0 = p.planStart ? monthDiff(ref, p.planStart) : graceMonths + 1;
+    const start = Math.max(1, k0 === null ? graceMonths + 1 : k0);
+    plan = { mode: 'simple', start, amount: Math.max(0, num(p.planAmount, 0)) };
+    graceMonths = start - 1;
+  } else if (p.planMode === 'custom') {
+    const amounts = new Map();
+    let past = 0;
+    for (const row of Array.isArray(p.planCustom) ? p.planCustom : []) {
+      const k = monthDiff(ref, row && row.m);
+      const a = Math.max(0, num(row && row.a, 0));
+      if (k === null || a <= 0) continue;
+      if (k < 1) { past++; continue; }
+      amounts.set(k, (amounts.get(k) || 0) + a);
+    }
+    const first = amounts.size ? Math.min(...amounts.keys()) : null;
+    plan = { mode: 'custom', amounts, first, past };
+    if (first !== null) graceMonths = first - 1;
+  }
   return {
+    ref, plan,
     crypto: Math.max(0, num(p.crypto, 0)),
     g: num(p.cryptoGrowth, 0) / 100,
     etf: Math.max(0, num(p.etf, 0)),
     savings: Math.max(0, num(p.savings, 0)),
     r: num(p.etfReturn, 0) / 100,
     vol: Math.max(0, num(p.volatility, 0)) / 100,
-    loan: Math.max(0, num(p.loan, 0)),
+    loan,
+    loanEtfNow: Math.max(0, num(p.loanEtfNow, 0)),
     i: Math.max(0, num(p.loanRate, 0)) / 100,
-    graceMonths: Math.max(0, Math.round(num(p.grace, 0) * 12)),
-    termMonths: Math.max(0, Math.round(num(p.term, 0) * 12)),
+    graceMonths,
+    termMonths,
     variant: p.variant === 'B' ? 'B' : 'A',
     months: horizonYears * 12,
     horizonYears,
@@ -50,9 +100,21 @@ export function toModel(input) {
   };
 }
 
-/** Monatliche Tilgungsrate in € (Darlehen / Laufzeit in Monaten). */
+/** Monatliche Tilgungsrate in €: Standard = Darlehen / Laufzeit, einfacher Plan = Betrag, individuell = erste Rate. */
 export function monthlyPayment(m, loan = m.loan) {
-  return m.termMonths > 0 ? loan / m.termMonths : 0;
+  if (!m.plan || m.plan.mode === 'standard') return m.termMonths > 0 ? loan / m.termMonths : 0;
+  if (loan <= 0) return 0;
+  if (m.plan.mode === 'simple') return m.plan.amount;
+  return m.plan.first === null ? 0 : m.plan.amounts.get(m.plan.first);
+}
+
+/** Fällige Zahlung im Monat k laut Plan (vor Begrenzung auf die Restschuld). */
+export function dueAt(m, k, loan = m.loan) {
+  if (loan <= 0) return 0;
+  const plan = m.plan || { mode: 'standard' };
+  if (plan.mode === 'standard') return k > m.graceMonths && m.termMonths > 0 ? loan / m.termMonths : 0;
+  if (plan.mode === 'simple') return k >= plan.start ? plan.amount : 0;
+  return plan.amounts.get(k) || 0;
 }
 
 /** Netto-Wert eines ETF-Depots: Gewinn über dem Einstandswert wird versteuert. */
@@ -73,18 +135,19 @@ export function engine(m, factors, opts = {}) {
   const record = !!opts.record;
   const taxEff = m.taxEff;
   const fc = Math.pow(1 + m.g, 1 / 12);
-  const pay = monthlyPayment(m, loan);
   const factorAt = typeof factors === 'function' ? factors : (k) => factors[k];
 
   let c = m.crypto;
   let e = m.etf, eB = m.etf;       // eigenes Depot und Einstandswert
-  let l = loan, lB = loan;         // Darlehensgeld im ETF und Einstandswert
+  // Darlehensgeld im ETF (ggf. heutiger Wert, wenn schon investiert) und Einstandswert
+  let l = loan > 0 && loan === m.loan && m.loanEtfNow > 0 ? m.loanEtfNow : loan, lB = loan;
   let debt = loan;
   let interestAcc = 0, interestPaid = 0, taxPaid = 0;
   let lAtGrace = m.graceMonths === 0 ? l : null;
   let loanDepotShort = false;      // Variante B: Darlehens-Depot reicht nicht zur Tilgung
   let depotShort = false;          // Variante B: ETF insgesamt reicht nicht zur Tilgung
   let t100 = null;
+  let payNow = 0, soldNow = 0, taxNow = 0, paidTotal = 0, lastPayMonth = null;
   const series = record ? [snapshot(0)] : null;
   if (record && total() >= TARGET) t100 = 0;
 
@@ -105,7 +168,7 @@ export function engine(m, factors, opts = {}) {
     if (gross > V) gross = V;
     const share = gross / V;
     const tax = gross * gainFrac * taxEff;
-    taxPaid += tax;
+    taxPaid += tax; taxNow += tax; soldNow += gross;
     if (which === 'l') { l -= gross; lB -= B * share; } else { e -= gross; eB -= B * share; }
     return gross - tax;
   }
@@ -114,11 +177,12 @@ export function engine(m, factors, opts = {}) {
     const defl = Math.pow(1 + m.infl, k / 12);
     const gross = c + e + l - debt;
     const net = c + netValue(e, eB, taxEff) + netValue(l, lB, taxEff) - debt;
-    return { month: k, c, e, l, debt, gross, net, real: gross / defl, realNet: net / defl };
+    return { month: k, c, e, l, debt, gross, net, real: gross / defl, realNet: net / defl, pay: payNow, sold: soldNow, tax: taxNow };
   }
 
   for (let k = 1; k <= months; k++) {
     const f = factorAt(k - 1);
+    payNow = 0; soldNow = 0; taxNow = 0;
     c *= fc;
     e = e * f + m.savings;
     eB += m.savings;
@@ -130,11 +194,13 @@ export function engine(m, factors, opts = {}) {
 
     if (k === m.graceMonths) lAtGrace = l;
 
-    if (k > m.graceMonths && debt > 0 && pay > 0) {
-      const due = Math.min(pay, debt);
+    const planned = debt > 0 ? dueAt(m, k, loan) : 0;
+    if (planned > 0) {
+      const due = Math.min(planned, debt);
       if (m.variant === 'A') {
         fromIncome(due);
         debt -= due;
+        payNow = due;
       } else {
         let paid = sell('l', due);
         if (paid < due - 1e-9) {
@@ -143,7 +209,9 @@ export function engine(m, factors, opts = {}) {
           if (paid < due - 1e-9) depotShort = true;
         }
         debt -= paid;
+        payNow = paid;
       }
+      if (payNow > 0) { paidTotal += payNow; lastPayMonth = k; }
       if (debt < 1e-9) debt = 0;
     }
 
@@ -158,7 +226,7 @@ export function engine(m, factors, opts = {}) {
     c, e, l, debt, eB, lB,
     lAtGrace: lAtGrace ?? l,
     t100,
-    interestPaid, taxPaid,
+    interestPaid, taxPaid, paidTotal, lastPayMonth,
     loanDepotShort, depotShort,
     series,
   };
@@ -231,19 +299,74 @@ export function validate(input) {
     else if (Number(p[k]) < 0) out.push(`Das Feld „${LABELS[k]}“ ist negativ; gerechnet wird mit 0.`);
   }
   if (m.horizonYears <= 0) out.push('Das Zielalter muss über dem heutigen Alter liegen, sonst gibt es keinen Horizont.');
-  if (m.loan > 0 && m.termMonths === 0) out.push('Die Tilgungsdauer ist 0 Jahre; das Darlehen würde nie getilgt.');
-  if (m.loan > 0 && m.horizonYears > 0 && m.graceMonths + m.termMonths > m.months) {
+  const std = m.plan.mode === 'standard';
+  if (std && m.loan > 0 && m.termMonths === 0) out.push('Die Tilgungsdauer ist 0 Jahre; das Darlehen würde nie getilgt.');
+  if (std && m.loan > 0 && m.horizonYears > 0 && m.graceMonths + m.termMonths > m.months) {
     const y = (mo) => fmtNum(mo / 12, mo % 12 ? 1 : 0);
     out.push(`Tilgungsfreie Zeit (${y(m.graceMonths)} J.) und Tilgung (${y(m.termMonths)} J.) dauern länger als der Horizont (${m.horizonYears} J.); am Ende bleibt eine Restschuld.`);
   }
   if (m.loan > 0 && m.variant === 'A' && monthlyPayment(m) > m.savings) {
     out.push(`Die Rate von ${fmtNum(monthlyPayment(m), 0)} € ist höher als die Sparrate von ${fmtNum(m.savings, 0)} €. In Variante A muss die Differenz zusätzlich aus dem Einkommen kommen; das Modell zieht sie vom eigenen Depot ab.`);
   }
+  if (!std && m.loan > 0) {
+    if (m.plan.mode === 'simple') {
+      if (p.planStart && monthDiff(m.ref, p.planStart) === null) out.push('Der Startmonat des Rückzahlungsplans ist ungültig (Format JJJJ-MM).');
+      else if (p.planStart && monthDiff(m.ref, p.planStart) < 1) out.push('Der Startmonat des Rückzahlungsplans liegt nicht in der Zukunft; gerechnet wird ab dem nächsten Monat.');
+      if (m.plan.amount <= 0) out.push('Die monatliche Auszahlung im Rückzahlungsplan ist 0 €; das Darlehen würde nie getilgt.');
+    } else {
+      if (m.plan.first === null) out.push('Der individuelle Rückzahlungsplan enthält keine künftigen Monate mit Betrag; das Darlehen würde nie getilgt.');
+      if (m.plan.past > 0) out.push(`${m.plan.past} Monat(e) im individuellen Plan liegen nicht in der Zukunft und werden nicht gerechnet.`);
+      let sum = 0;
+      for (const a of m.plan.amounts.values()) sum += a;
+      if (sum > m.loan + 0.5) out.push(`Der individuelle Plan zahlt ${fmtNum(sum, 0)} € zurück, das Darlehen beträgt ${fmtNum(m.loan, 0)} €. Gerechnet wird nur bis zur Restschuld 0.`);
+    }
+    const plan = repaymentPlan(p);
+    if (m.horizonYears > 0 && plan.debtEnd > 0.5) out.push(`Bis zum Horizont (${m.horizonYears} J.) ist das Darlehen laut Plan nicht getilgt; es bleibt eine Restschuld von ${fmtNum(plan.debtEnd, 0)} €.`);
+  }
   if (m.exemption > 1 || Number(p.exemption) > 100) out.push('Die Teilfreistellung kann nicht über 100 % liegen.');
   if (Number(p.taxRate) > 100) out.push('Der Steuersatz kann nicht über 100 % liegen.');
   if (Number(p.etfReturn) < 3 || Number(p.etfReturn) > 9) out.push('Die ETF-Rendite liegt außerhalb der vorgesehenen Spanne von 3 bis 9 %.');
   if (Number(p.volatility) > 60) out.push('Eine Schwankung über 60 % pro Jahr ist für einen Welt-ETF unrealistisch.');
   return out;
+}
+
+/**
+ * Rückzahlungsplan (deterministisch, feste Rendite): alle Monate mit Zahlung an die Eltern.
+ * Zeilen: Monat ("JJJJ-MM"), Zahlung, bei Variante B verkaufter Betrag und Steuer, Restschuld danach.
+ */
+export function repaymentPlan(input) {
+  const m = toModel(input);
+  const f = Math.pow(1 + m.r, 1 / 12);
+  const res = engine(m, () => f, { record: true });
+  const rows = [];
+  for (const pt of res.series) {
+    if (pt.pay > 0) rows.push({ k: pt.month, month: addMonths(m.ref, pt.month), pay: pt.pay, sold: pt.sold, tax: pt.tax, debt: pt.debt });
+  }
+  const total = rows.reduce((s, r) => s + r.pay, 0);
+  return {
+    ref: m.ref, variant: m.variant, loan: m.loan, mode: m.plan.mode,
+    rows, total,
+    first: rows.length ? rows[0].month : null,
+    last: rows.length ? rows[rows.length - 1].month : null,
+    count: rows.length,
+    typical: monthlyPayment(m),
+    debtEnd: res.debt,
+    taxTotal: rows.reduce((s, r) => s + r.tax, 0),
+    soldTotal: rows.reduce((s, r) => s + r.sold, 0),
+  };
+}
+
+/** Erzeugt einen individuellen Plan aus einer einfachen Regel (Betrag pro Monat ab Startmonat, bis zur Tilgung). */
+export function buildCustomPlan(loan, amount, startMonth, maxMonths = 600) {
+  const rows = [];
+  if (!(amount > 0) || !(loan > 0) || monthDiff(startMonth, startMonth) === null) return rows;
+  let rest = loan;
+  for (let k = 0; rest > 0.005 && k < maxMonths; k++) {
+    const a = Math.min(amount, rest);
+    rows.push({ m: addMonths(startMonth, k), a: Math.round(a * 100) / 100 });
+    rest -= a;
+  }
+  return rows;
 }
 
 export const LABELS = {
@@ -328,7 +451,7 @@ export function monteCarlo(input, opts = {}) {
     gain[n] = b.final - a.final;
     if (gain[n] < 0) loss++;
     // Darlehensgeld nach der tilgungsfreien Zeit (ohne Tilgung, daher eigene Rechnung)
-    let lg = m.loan;
+    let lg = m.loan > 0 && m.loanEtfNow > 0 ? m.loanEtfNow : m.loan;
     for (let k = 0; k < m.graceMonths; k++) lg *= fac[k];
     lGrace[n] = lg;
     if (lg < m.loan) below++;

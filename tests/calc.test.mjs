@@ -109,3 +109,58 @@ test('Hilfsfunktionen: Format und Statistik', () => {
   assert.equal(breakEven([{ rate: 0, median: 10 }, { rate: 1, median: -10 }]), 0.5);
   const r = rng(1); const x = r(); assert.ok(x >= 0 && x < 1);
 });
+
+// ---------- Rückzahlungsplan ----------
+import { repaymentPlan, buildCustomPlan, monthDiff, addMonths } from '../calc.js';
+
+test('Monatsrechnung: Abstand und Addition', () => {
+  assert.equal(monthDiff('2026-10', '2036-11'), 121);
+  assert.equal(addMonths('2026-10', 3), '2027-01');
+  assert.equal(monthDiff('2026-10', 'Oktober'), null);
+});
+
+test('Standard-Plan: 120 Raten zu 166,67 € ab Monat 121', () => {
+  const p = repaymentPlan({ ...base, refMonth: '2026-10' });
+  assert.equal(p.count, 120);
+  assert.equal(p.first, '2036-11');
+  assert.equal(p.last, '2046-10');
+  near(p.rows[0].pay, 166.67, 0.001, 'Rate');
+  near(p.total, 20000, 1e-9, 'Summe');
+  assert.equal(p.debtEnd, 0);
+});
+
+test('Einfacher Plan „…/Monat ab …“ entspricht dem Standard, wenn Betrag und Start gleich sind', () => {
+  const std = compare({ ...base, refMonth: '2026-10' });
+  const simple = compare({ ...base, refMonth: '2026-10', planMode: 'simple', planAmount: 20000 / 120, planStart: '2036-11' });
+  near(simple.finalWith, std.finalWith, 1e-9, 'Vermögen mit Darlehen');
+  const p = repaymentPlan({ ...base, refMonth: '2026-10', planMode: 'simple', planAmount: 500, planStart: '2030-01' });
+  assert.equal(p.first, '2030-01');
+  assert.equal(p.count, 40);
+  assert.equal(p.last, '2033-04');
+});
+
+test('Individueller Plan: Monate einzeln, Restschuld und Warnung', () => {
+  const rows = buildCustomPlan(20000, 1000, '2027-01');
+  assert.equal(rows.length, 20);
+  rows[0].a = 3000; // erster Monat mehr
+  const p = repaymentPlan({ ...base, refMonth: '2026-10', planMode: 'custom', planCustom: rows });
+  assert.equal(p.count, 18, 'nach 18 Monaten getilgt, weil der erste Monat mehr zahlt');
+  near(p.rows[0].pay, 3000, 1e-9, 'erste Zahlung');
+  const short = repaymentPlan({ ...base, refMonth: '2026-10', planMode: 'custom', planCustom: rows.slice(0, 5) });
+  near(short.debtEnd, 20000 - 3000 - 4000, 1e-9, 'Restschuld');
+  const msgs = validate({ ...base, refMonth: '2026-10', planMode: 'custom', planCustom: rows.slice(0, 5) });
+  assert.ok(msgs.some((t) => t.includes('Restschuld')));
+});
+
+test('Variante B mit Plan: Verkauf aus dem ETF inklusive Steuer', () => {
+  const p = repaymentPlan({ ...base, refMonth: '2026-10', variant: 'B' });
+  assert.ok(p.taxTotal > 0);
+  near(p.soldTotal - p.taxTotal, 20000, 1e-6, 'netto ausgezahlt = Darlehen');
+});
+
+test('Darlehensgeld schon investiert: heutiger Wert ersetzt den Darlehensbetrag im ETF', () => {
+  const a = compare({ ...base, refMonth: '2026-10' });
+  const b = compare({ ...base, refMonth: '2026-10', loanEtfNow: 22000 });
+  near(b.finalWith - a.finalWith, 2000 * Math.pow(1.06, 30), 1e-6, 'Mehrwert wächst mit');
+  assert.equal(b.finalWithout, a.finalWithout);
+});
