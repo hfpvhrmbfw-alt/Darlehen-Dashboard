@@ -233,7 +233,8 @@ export function validate(input) {
   if (m.horizonYears <= 0) out.push('Das Zielalter muss über dem heutigen Alter liegen, sonst gibt es keinen Horizont.');
   if (m.loan > 0 && m.termMonths === 0) out.push('Die Tilgungsdauer ist 0 Jahre; das Darlehen würde nie getilgt.');
   if (m.loan > 0 && m.horizonYears > 0 && m.graceMonths + m.termMonths > m.months) {
-    out.push(`Tilgungsfreie Zeit (${fmtNum(m.graceMonths / 12, 1)} J.) und Tilgung (${fmtNum(m.termMonths / 12, 1)} J.) dauern länger als der Horizont (${m.horizonYears} J.); am Ende bleibt eine Restschuld.`);
+    const y = (mo) => fmtNum(mo / 12, mo % 12 ? 1 : 0);
+    out.push(`Tilgungsfreie Zeit (${y(m.graceMonths)} J.) und Tilgung (${y(m.termMonths)} J.) dauern länger als der Horizont (${m.horizonYears} J.); am Ende bleibt eine Restschuld.`);
   }
   if (m.loan > 0 && m.variant === 'A' && monthlyPayment(m) > m.savings) {
     out.push(`Die Rate von ${fmtNum(monthlyPayment(m), 0)} € ist höher als die Sparrate von ${fmtNum(m.savings, 0)} €. In Variante A muss die Differenz zusätzlich aus dem Einkommen kommen; das Modell zieht sie vom eigenen Depot ab.`);
