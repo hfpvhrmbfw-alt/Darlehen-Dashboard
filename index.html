@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#E3DAD3" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1D1916" media="(prefers-color-scheme: dark)">
+<meta name="description" content="Gedankenrechnung: Familiendarlehen im Welt-ETF. Vermögen, Zeit bis 100.000 € und Risiko. Keine Anlageberatung.">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Darlehen">
+<title>Darlehen-Tracker</title>
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" href="./icons/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="./icons/apple-touch-icon-180.png">
+<link rel="preload" href="./fonts/IBMPlexSans-400.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="./fonts/IBMPlexMono-600.woff2" as="font" type="font/woff2" crossorigin>
+<style>
+/* Schriften lokal aus dem Repo (bewusste Abweichung vom Hausstil: kein Google Fonts) */
+@font-face { font-family:"Source Serif 4"; font-style:normal; font-weight:700; font-display:swap; src:url("./fonts/SourceSerif4-700.woff2") format("woff2"); }
+@font-face { font-family:"IBM Plex Mono"; font-style:normal; font-weight:400; font-display:swap; src:url("./fonts/IBMPlexMono-400.woff2") format("woff2"); }
+@font-face { font-family:"IBM Plex Mono"; font-style:normal; font-weight:500; font-display:swap; src:url("./fonts/IBMPlexMono-500.woff2") format("woff2"); }
+@font-face { font-family:"IBM Plex Mono"; font-style:normal; font-weight:600; font-display:swap; src:url("./fonts/IBMPlexMono-600.woff2") format("woff2"); unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD; }
+@font-face { font-family:"IBM Plex Mono"; font-style:normal; font-weight:400; font-display:swap; src:url("./fonts/IBMPlexMono-600-numero.woff2") format("woff2"); unicode-range:U+2116; }
+@font-face { font-family:"IBM Plex Mono"; font-style:normal; font-weight:500; font-display:swap; src:url("./fonts/IBMPlexMono-600-numero.woff2") format("woff2"); unicode-range:U+2116; }
+@font-face { font-family:"IBM Plex Mono"; font-style:normal; font-weight:600; font-display:swap; src:url("./fonts/IBMPlexMono-600-numero.woff2") format("woff2"); unicode-range:U+2116; }
+@font-face { font-family:"IBM Plex Sans"; font-style:normal; font-weight:400; font-display:swap; src:url("./fonts/IBMPlexSans-400.woff2") format("woff2"); }
+@font-face { font-family:"IBM Plex Sans"; font-style:normal; font-weight:600; font-display:swap; src:url("./fonts/IBMPlexSans-600.woff2") format("woff2"); }
+
+/* ---------- Hausstil Web v1.2 ---------- */
+:root {
+  --bg:#E3DAD3; --surface:#F2EBE6; --sunken:#D8CDC5; --line:#C8BBB1; --ink:#111111; --muted:#5C524D; --faint:#8D837C;
+  --accent:#E8451C; --accent-text:#AA310D; --accent-hover:#C9380F; --accent-tint:#F5CEC2; --accent-ink:#111111;
+  --ok:#2B6B3A; --ok-tint:#DCE8DA; --warn:#7A5200; --warn-tint:#F1E3C4;
+  --err:#A3182B; --err-tint:#F2D3D3; --info:#1F4E8C; --info-tint:#D6E0EC;
+  --serif:"Source Serif 4",Georgia,"Times New Roman",serif; --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; --mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:32px; --s7:48px; --s8:64px;
+  --r:2px; --maxw:1080px; --gutter:clamp(16px,4vw,40px); color-scheme:light;
+}
+[data-theme="dark"] {
+  --bg:#1D1916; --surface:#27211D; --sunken:#332B26; --line:#463C35; --ink:#EFE6DE; --muted:#B7ABA1; --faint:#7F746B;
+  --accent:#E8451C; --accent-text:#F0896F; --accent-hover:#EB603C; --accent-tint:#4E281D; --accent-ink:#111111;
+  --ok:#7FC48F; --ok-tint:#233226; --warn:#E0B25A; --warn-tint:#352B17;
+  --err:#F08A8F; --err-tint:#3A2123; --info:#8DB4EA; --info-tint:#1E2A3A; color-scheme:dark;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg:#1D1916; --surface:#27211D; --sunken:#332B26; --line:#463C35; --ink:#EFE6DE; --muted:#B7ABA1; --faint:#7F746B;
+  --accent:#E8451C; --accent-text:#F0896F; --accent-hover:#EB603C; --accent-tint:#4E281D; --accent-ink:#111111;
+  --ok:#7FC48F; --ok-tint:#233226; --warn:#E0B25A; --warn-tint:#352B17;
+  --err:#F08A8F; --err-tint:#3A2123; --info:#8DB4EA; --info-tint:#1E2A3A; color-scheme:dark; } }
+
+* { box-sizing:border-box; }
+html { background:var(--bg); -webkit-text-size-adjust:100%; }
+body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.55 var(--sans); -webkit-font-smoothing:antialiased; overflow-x:hidden; }
+.wrap { max-width:var(--maxw); margin:0 auto; padding:0 var(--gutter); }
+a { color:var(--ink); text-decoration-color:var(--accent); text-decoration-thickness:2px; text-underline-offset:3px; }
+a:hover { color:var(--accent-text); }
+:focus-visible { outline:3px solid var(--accent-text); outline-offset:2px; } /* accent-text statt accent: Kontrast ≥ 3:1 auch im Hellmodus */
+.mono { font-family:var(--mono); }
+.cap { font-family:var(--mono); font-size:12px; letter-spacing:.12em; text-transform:uppercase; }
+code { font:14px var(--mono); background:var(--sunken); padding:1px 5px; }
+
+.runhead { position:sticky; top:0; z-index:10; background:var(--bg); border-bottom:2px solid var(--accent); padding-top:env(safe-area-inset-top); }
+.runhead .wrap > span { min-width:0; }
+.runhead .wrap { display:flex; justify-content:space-between; align-items:center; gap:var(--s4); min-height:48px; }
+.runhead nav { display:flex; gap:20px; flex-wrap:wrap; }
+.runhead nav a { text-decoration:none; }
+
+.hero { padding:40px 0 0; }
+.hero h1 { font:700 clamp(36px,7vw,68px)/1.02 var(--serif); letter-spacing:-.02em; margin:0; border-left:10px solid var(--accent); padding-left:18px; }
+.hero .subtitle { margin:var(--s3) 0 0 28px; }
+.hero .subtitle .sep { color:var(--faint); padding:0 .6em; }
+.hero .lede { margin:20px 0 0 28px; max-width:62ch; color:var(--muted); font-size:18px; }
+.rule-heavy { border:0; border-top:4px solid var(--ink); margin:var(--s6) 0 var(--s5); }
+
+.section { border-bottom:2px solid var(--ink); padding-bottom:var(--s4); margin:0 0 var(--s7); }
+.label { display:inline-block; background:var(--accent); color:var(--accent-ink); font:600 16px/1.2 var(--mono); letter-spacing:.04em; padding:9px 14px; margin:0 0 var(--s3); }
+.label .no { color:#fff; }
+.section h2 { margin:0; }
+h3.sub { font:700 22px/1.2 var(--serif); margin:var(--s6) 0 var(--s3); }
+
+.row { display:flex; gap:var(--s3); align-items:baseline; padding:var(--s3) var(--s1); border-bottom:1px solid var(--line); }
+.row:last-child { border-bottom:0; }
+.row::before { content:"—"; color:var(--faint); flex:none; }
+.row.prio::before { color:var(--accent); }
+
+.fill { font:600 13px var(--mono); color:var(--accent-text); }
+.tag { font:500 11px/1 var(--mono); letter-spacing:.08em; text-transform:uppercase; border:1px solid var(--ink); padding:4px 6px; white-space:nowrap; }
+.tag.acc { border-color:var(--accent-text); color:var(--accent-text); }
+.tag.inv { background:var(--ink); color:var(--bg); }
+
+.note { border-left:4px solid var(--accent); background:var(--accent-tint); padding:14px 18px; margin:var(--s3) 0 var(--s4); }
+.note .cap { color:var(--accent-text); font-weight:600; margin-right:var(--s3); }
+.note.ok { border-color:var(--ok); background:var(--ok-tint); } .note.ok .cap { color:var(--ok); }
+.note.warn { border-color:var(--warn); background:var(--warn-tint); } .note.warn .cap { color:var(--warn); }
+.note.err { border-color:var(--err); background:var(--err-tint); } .note.err .cap { color:var(--err); }
+.note.info { border-color:var(--info); background:var(--info-tint); } .note.info .cap { color:var(--info); }
+.note p { margin:0; } .note p + p, .note ul { margin-top:var(--s2); }
+.note ul { margin-bottom:0; padding-left:20px; }
+.note .btn { margin-top:var(--s3); }
+
+.table-scroll { overflow-x:auto; -webkit-overflow-scrolling:touch; max-width:100%; }
+table.data { width:100%; border-collapse:collapse; background:var(--surface); }
+table.data caption { caption-side:bottom; text-align:left; font:12px/1.4 var(--mono); letter-spacing:.06em; text-transform:uppercase; color:var(--muted); padding:var(--s2) 0; }
+table.data th { text-align:left; font:600 12px var(--mono); letter-spacing:.1em; text-transform:uppercase; border-bottom:2px solid var(--ink); padding:var(--s3) 14px; vertical-align:bottom; }
+table.data td { border-bottom:1px solid var(--line); padding:var(--s3) 14px; vertical-align:top; }
+table.data tbody tr:hover { background:var(--sunken); }
+table.data .num { text-align:right; font-family:var(--mono); white-space:nowrap; }
+table.data th.num { white-space:normal; min-width:96px; }
+table.data .num .tag { display:inline-block; margin-top:var(--s1); }
+table.data tr.sum td { border-top:2px solid var(--ink); border-bottom:0; font-weight:600; }
+table.data tr.mark td { font-weight:600; }
+table.data tr.mark td:first-child, table.data tr.mark th:first-child { border-left:4px solid var(--accent); }
+table.data th[scope="row"] { vertical-align:top; font:600 14px var(--mono); letter-spacing:0; text-transform:none; border-bottom:1px solid var(--line); }
+
+.grid { display:grid; gap:var(--s4); grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr)); }
+.kpis { display:grid; gap:var(--s4) var(--s5); grid-template-columns:repeat(auto-fit,minmax(min(100%,150px),1fr)); margin-bottom:var(--s5); }
+.kpi { border-top:1px solid var(--line); padding-top:var(--s2); min-width:0; }
+.kpi .k { color:var(--muted); display:block; }
+.kpi .v { font:700 clamp(28px,4vw,38px)/1.1 var(--serif); display:block; margin-top:var(--s1); overflow-wrap:anywhere; }
+.kpi .v.acc { color:var(--accent-text); } /* Kontrast: Signal-Orange auf Terra liegt knapp unter 3:1 */
+.kpi .s { font-size:14px; color:var(--muted); }
+.card { background:var(--surface); border:1px solid var(--line); border-top:4px solid var(--ink); padding:18px 20px; min-width:0; }
+.card h3 { font:700 22px/1.2 var(--serif); margin:var(--s1) 0 var(--s3); }
+.card p { margin:0; color:var(--muted); }
+
+.btn { display:inline-flex; align-items:center; gap:var(--s2); font:600 14px/1 var(--mono); letter-spacing:.04em; padding:var(--s3) 18px; border:2px solid var(--ink); background:transparent; color:var(--ink); cursor:pointer; text-decoration:none; border-radius:var(--r); min-height:44px; }
+.btn:hover { background:var(--ink); color:var(--bg); }
+.btn.primary { font-size:16px; background:var(--accent); border-color:var(--accent); color:var(--accent-ink); }
+.btn.primary:hover { background:var(--accent-hover); border-color:var(--accent-hover); color:var(--accent-ink); }
+.btn.small { white-space:nowrap; min-height:36px; padding:var(--s2) var(--s3); font-size:13px; }
+.btn[aria-pressed="true"] { background:var(--ink); color:var(--bg); }
+.toolbar { display:flex; flex-wrap:wrap; gap:var(--s2); align-items:center; margin:var(--s3) 0; }
+
+.field { display:grid; gap:6px; padding:var(--s3) 0; border-bottom:1px solid var(--line); min-width:0; }
+.field:last-child { border-bottom:0; }
+.field > label, .field > .lbl { font:600 15px/1.3 var(--sans); display:flex; justify-content:space-between; gap:var(--s3); align-items:baseline; }
+.field .hint { font-size:14px; color:var(--muted); }
+.field output, .field .val { font:600 15px var(--mono); color:var(--accent-text); white-space:nowrap; }
+.field input[type="number"], .field input[type="text"], .field select { font:16px var(--sans); padding:10px var(--s3); background:var(--surface); color:var(--ink); border:1px solid var(--line); border-bottom:2px solid var(--ink); border-radius:0; width:100%; min-height:44px; }
+.field input:focus, .field select:focus { outline:none; border-bottom-color:var(--accent); }
+.field input:focus-visible, .field select:focus-visible { outline:3px solid var(--accent-text); outline-offset:2px; } /* accent-text statt accent: Kontrast ≥ 3:1 auch im Hellmodus */
+.field .pair { display:grid; grid-template-columns:1fr 120px; gap:var(--s3); align-items:center; }
+.field .marks { display:flex; justify-content:space-between; font:12px var(--mono); color:var(--muted); }
+input[type="range"] { width:100%; accent-color:var(--accent); margin:0; min-height:32px; background:transparent; }
+.radio { display:flex; flex-wrap:wrap; gap:var(--s2); }
+.radio label { display:flex; gap:var(--s2); align-items:flex-start; border:1px solid var(--line); background:var(--surface); padding:10px var(--s3); cursor:pointer; flex:1 1 220px; font-weight:400; }
+.radio label:hover { background:var(--sunken); }
+.radio input { accent-color:var(--accent); margin:3px 0 0; width:18px; height:18px; flex:none; }
+.radio label:has(input:checked) { border-color:var(--ink); border-left:4px solid var(--accent); }
+.radio b { font-weight:600; }
+.switch { display:flex; gap:var(--s4); flex-wrap:wrap; align-items:center; }
+.seg { display:inline-flex; border:2px solid var(--ink); border-radius:var(--r); }
+.seg button { font:600 13px/1 var(--mono); letter-spacing:.06em; text-transform:uppercase; background:transparent; color:var(--ink); border:0; padding:var(--s2) var(--s3); min-height:36px; cursor:pointer; }
+.seg button + button { border-left:2px solid var(--ink); }
+.seg button[aria-pressed="true"] { background:var(--ink); color:var(--bg); }
+.viewbar { display:flex; flex-wrap:wrap; gap:var(--s3) var(--s5); align-items:center; padding:var(--s3) 0; border-bottom:1px solid var(--line); margin-bottom:var(--s4); }
+.viewbar .cap { color:var(--muted); }
+
+figure { margin:var(--s4) 0; }
+figcaption { font:12px/1.4 var(--mono); letter-spacing:.06em; text-transform:uppercase; color:var(--muted); border-bottom:1px solid var(--line); padding:var(--s2) 0; }
+figcaption b { color:var(--ink); margin-right:var(--s2); }
+.chart { width:100%; min-height:240px; background:var(--surface); border:1px solid var(--line); }
+.chart svg { display:block; width:100%; height:auto; }
+.chart text { font-family:var(--mono); font-size:11px; fill:var(--muted); }
+.chart .axis { stroke:var(--ink); stroke-width:1; }
+.chart .gridl { stroke:var(--line); stroke-width:1; }
+.chart .l-ink { fill:none; stroke:var(--ink); stroke-width:2; stroke-dasharray:6 4; }
+.chart .l-acc { fill:none; stroke:var(--accent); stroke-width:3; }
+.chart .l-acc2 { fill:none; stroke:var(--ink); stroke-width:1.5; stroke-dasharray:2 3; }
+.chart .bar { fill:var(--accent); }
+.chart .bar.dim { fill:var(--sunken); stroke:var(--line); }
+.chart .mark { stroke:var(--ink); stroke-width:2; }
+.chart .mark.dash { stroke-dasharray:4 3; }
+.chart .zero { stroke:var(--ink); stroke-width:1.5; }
+.chart .target { stroke:var(--muted); stroke-width:1; stroke-dasharray:3 3; }
+.chart .lbl { fill:var(--ink); font-weight:600; }
+.chart .lbl-acc { fill:var(--accent-text); font-weight:600; }
+.chart .dot { fill:var(--surface); stroke:var(--accent); stroke-width:2; }
+.legend { display:flex; flex-wrap:wrap; gap:var(--s2) var(--s5); font:13px var(--mono); color:var(--muted); margin:var(--s2) 0 0; padding:0; list-style:none; }
+.legend li { display:flex; gap:var(--s2); align-items:center; }
+.legend svg { flex:none; }
+
+.tabs [role="tablist"] { display:flex; gap:var(--s1); border-bottom:2px solid var(--ink); flex-wrap:wrap; }
+.tabs [role="tab"] { font:600 13px/1.2 var(--mono); letter-spacing:.04em; text-transform:uppercase; background:transparent; color:var(--muted); border:0; border-bottom:4px solid transparent; padding:var(--s3) var(--s3) 10px; margin-bottom:-2px; cursor:pointer; min-height:44px; }
+.tabs [role="tab"] .no { color:var(--accent-text); margin-right:6px; }
+.tabs [role="tab"]:hover { color:var(--ink); }
+.tabs [role="tab"][aria-selected="true"] { color:var(--ink); border-bottom-color:var(--accent); }
+.tabs [role="tabpanel"] { padding:var(--s5) 0 0; }
+.tabs [role="tabpanel"]:focus-visible { outline-offset:4px; }
+
+details { border-bottom:1px solid var(--line); }
+details:first-of-type { border-top:1px solid var(--line); }
+summary { list-style:none; cursor:pointer; display:flex; justify-content:space-between; gap:var(--s4); align-items:center; font:600 13px/1.3 var(--mono); letter-spacing:.08em; text-transform:uppercase; padding:14px var(--s1); min-height:44px; }
+summary::-webkit-details-marker { display:none; }
+summary::after { content:"+"; font-size:20px; color:var(--accent-text); }
+details[open] summary::after { content:"−"; }
+summary:hover { background:var(--sunken); }
+details > div { padding:0 var(--s1) var(--s4); color:var(--ink); }
+details > div p { margin:0 0 var(--s2); }
+
+footer { border-top:2px solid var(--accent); margin-top:var(--s8); padding:18px 0 40px; color:var(--muted); }
+footer .wrap { display:flex; justify-content:space-between; flex-wrap:wrap; gap:var(--s3); }
+
+.vh { position:absolute !important; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
+.muted { color:var(--muted); }
+.status { font:13px var(--mono); color:var(--muted); min-height:1.5em; }
+.cols { display:grid; gap:var(--s5); grid-template-columns:repeat(auto-fit,minmax(min(100%,290px),1fr)); align-items:start; }
+.prose { max-width:70ch; }
+.prose p { margin:0 0 var(--s3); }
+[hidden] { display:none !important; }
+
+@media (max-width:600px) {
+  .hide-s { display:none; }
+  .hero { padding-top:28px; }
+  .hero h1 { padding-left:var(--s3); border-left-width:6px; }
+  .hero .subtitle, .hero .lede { margin-left:18px; }
+  .hero .lede { font-size:16px; }
+  .tabs [role="tab"] { padding:var(--s2) var(--s2) 8px; font-size:12px; letter-spacing:.04em; }
+  .field .pair { grid-template-columns:1fr 104px; }
+  table.data th, table.data td { padding:var(--s2) var(--s2); }
+}
+@media (prefers-reduced-motion: no-preference) { html { scroll-behavior:smooth; } }
+@media print { .runhead, .toolbar, .viewbar, footer { display:none; } }
+</style>
+</head>
+<body>
+<header class="runhead">
+  <div class="wrap cap">
+    <span>Darlehen-Tracker<span class="hide-s"> · Gedankenrechnung</span></span>
+    <button class="btn small" id="theme-toggle" type="button" aria-label="Farbschema wechseln">Auto</button>
+  </div>
+</header>
+
+<main class="wrap" id="main">
+  <div class="note info" id="note-hinweis" role="note" style="margin-top:var(--s5)">
+    <p><span class="cap">HINWEIS</span>Gedankenrechnung, keine Anlage-, Rechts- oder Steuerberatung. Alle Renditen sind Annahmen und keine Prognose.</p>
+  </div>
+  <div id="note-update" class="note info" role="status" hidden>
+    <p><span class="cap">UPDATE</span>Eine neue Version der App ist bereit.</p>
+    <button class="btn primary" id="btn-update" type="button">Neu laden</button>
+  </div>
+  <div id="notes-achtung" aria-live="polite"></div>
+
+  <section class="hero">
+    <h1>Familiendarlehen im <span style="white-space:nowrap">Welt-ETF</span></h1>
+    <div class="subtitle cap">Vermögen<span class="sep">·</span>Zeit<span class="sep">·</span>Risiko</div>
+    <p class="lede">Ein zinsloses oder zinsarmes Darlehen der Eltern, komplett in einen All-World-ETF investiert: Was bedeutet das für das Vermögen, wie lange dauert es bis 100.000 € und wie hoch ist das Risiko?</p>
+  </section>
+  <hr class="rule-heavy">
+
+  <div class="viewbar" role="group" aria-label="Ansicht der Werte">
+    <span class="cap">Ansicht</span>
+    <div class="seg" role="group" aria-label="Brutto oder netto">
+      <button type="button" data-view="net" data-value="0" aria-pressed="true">Brutto</button>
+      <button type="button" data-view="net" data-value="1" aria-pressed="false">Netto</button>
+    </div>
+    <div class="seg" role="group" aria-label="Nominal oder real">
+      <button type="button" data-view="real" data-value="0" aria-pressed="true">Nominal</button>
+      <button type="button" data-view="real" data-value="1" aria-pressed="false">Real</button>
+    </div>
+    <span class="muted" id="view-desc" style="font-size:14px"></span>
+  </div>
+
+  <div class="tabs">
+    <div role="tablist" aria-label="Abschnitte">
+      <button role="tab" id="tab-1" aria-controls="panel-1" aria-selected="true" tabindex="0"><span class="no">№ 01</span>Eingaben</button>
+      <button role="tab" id="tab-2" aria-controls="panel-2" aria-selected="false" tabindex="-1"><span class="no">№ 02</span>Überblick</button>
+      <button role="tab" id="tab-3" aria-controls="panel-3" aria-selected="false" tabindex="-1"><span class="no">№ 03</span>Szenarien</button>
+      <button role="tab" id="tab-4" aria-controls="panel-4" aria-selected="false" tabindex="-1"><span class="no">№ 04</span>Risiko</button>
+      <button role="tab" id="tab-5" aria-controls="panel-5" aria-selected="false" tabindex="-1"><span class="no">№ 05</span>Zinsgrenze</button>
+      <button role="tab" id="tab-6" aria-controls="panel-6" aria-selected="false" tabindex="-1"><span class="no">№ 06</span>Nach 100.000 €</button>
+      <button role="tab" id="tab-7" aria-controls="panel-7" aria-selected="false" tabindex="-1"><span class="no">№ 07</span>Eltern</button>
+    </div>
+
+    <!-- № 01 Eingaben -->
+    <section role="tabpanel" id="panel-1" aria-labelledby="tab-1" tabindex="0">
+      <div class="section">
+        <h2 class="label"><span class="no">№ 01</span> — Eingaben</h2>
+        <div class="toolbar" aria-label="Schnellwahl">
+          <span class="cap muted">Schnellwahl</span>
+          <button class="btn small" type="button" data-preset="20000-10">20.000 € / 10 Jahre</button>
+          <button class="btn small" type="button" data-preset="50000-20">50.000 € / 20 Jahre</button>
+        </div>
+        <form id="form" class="cols" novalidate>
+          <div class="card">
+            <h3>Heute</h3>
+            <div class="field" data-key="crypto" data-kind="number"><label for="in-crypto">Krypto-Depot heute <span class="val" data-out="crypto"></span></label><input id="in-crypto" name="crypto" type="number" inputmode="decimal" min="0" step="100"></div>
+            <div class="field" data-key="cryptoGrowth" data-kind="range" data-unit="%"><label for="in-cryptoGrowth">Wachstum Krypto pro Jahr <output data-out="cryptoGrowth" for="in-cryptoGrowth"></output></label><input id="in-cryptoGrowth" name="cryptoGrowth" type="range" min="0" max="20" step="0.5"><div class="marks" aria-hidden="true"><span>0 %</span><span>10 %</span><span>20 %</span></div></div>
+            <div class="field" data-key="etf" data-kind="number"><label for="in-etf">ETF-Bestand heute <span class="val" data-out="etf"></span></label><input id="in-etf" name="etf" type="number" inputmode="decimal" min="0" step="100"></div>
+            <div class="field" data-key="savings" data-kind="range" data-unit="€"><label for="in-savings">Monatliche ETF-Sparrate <output data-out="savings" for="in-savings"></output></label><input id="in-savings" name="savings" type="range" min="0" max="1000" step="10"><div class="marks" aria-hidden="true"><span>0 €</span><span>500 €</span><span>1.000 €</span></div></div>
+            <div class="field" data-key="etfReturn" data-kind="range" data-unit="%"><label for="in-etfReturn">ETF-Rendite pro Jahr <output data-out="etfReturn" for="in-etfReturn"></output></label><input id="in-etfReturn" name="etfReturn" type="range" min="3" max="9" step="0.1"><div class="marks" aria-hidden="true"><span>3 %</span><span>6 %</span><span>9 %</span></div></div>
+            <div class="field" data-key="volatility" data-kind="number"><label for="in-volatility">Schwankung pro Jahr (%) <span class="val" data-out="volatility"></span></label><input id="in-volatility" name="volatility" type="number" inputmode="decimal" min="0" max="60" step="0.5"></div>
+          </div>
+
+          <div class="card">
+            <h3>Darlehen</h3>
+            <div class="field" data-key="loan" data-kind="range" data-unit="€"><label for="in-loan">Betrag <output data-out="loan" for="in-loan"></output></label><input id="in-loan" name="loan" type="range" min="0" max="100000" step="1000"><div class="marks" aria-hidden="true"><span>0 €</span><span>50.000 €</span><span>100.000 €</span></div>
+              <div class="toolbar" style="margin:var(--s1) 0 0"><button class="btn small" type="button" data-loan="20000">20.000 €</button><button class="btn small" type="button" data-loan="50000">50.000 €</button></div></div>
+            <div class="field" data-key="loanRate" data-kind="range" data-unit="%"><label for="in-loanRate">Darlehenszins pro Jahr <output data-out="loanRate" for="in-loanRate"></output></label><input id="in-loanRate" name="loanRate" type="range" min="0" max="8" step="0.1"><div class="marks" aria-hidden="true"><span>0 %</span><span>4 %</span><span>8 %</span></div><span class="hint">Zinsen werden jährlich aus dem Einkommen bezahlt.</span></div>
+            <div class="field" data-key="grace" data-kind="number"><label for="in-grace">Tilgungsfreie Zeit (Jahre) <span class="val" data-out="grace"></span></label><input id="in-grace" name="grace" type="number" inputmode="numeric" min="0" max="50" step="1"></div>
+            <div class="field" data-key="term" data-kind="select"><label for="in-term">Danach Tilgung monatlich über</label><select id="in-term" name="term"><option value="5">5 Jahre</option><option value="10">10 Jahre</option><option value="20">20 Jahre</option></select></div>
+            <div class="field" data-key="variant" data-kind="radio"><span class="lbl" id="lbl-variant">Tilgungsvariante</span>
+              <div class="radio" role="radiogroup" aria-labelledby="lbl-variant">
+                <label><input type="radio" name="variant" value="A"><span><b>A</b> · Raten aus dem Einkommen (meine Sparrate fällt in dieser Zeit weg)</span></label>
+                <label><input type="radio" name="variant" value="B"><span><b>B</b> · Raten durch Verkauf aus dem ETF (anteilig versteuert)</span></label>
+              </div></div>
+          </div>
+
+          <div class="card">
+            <h3>Horizont und Annahmen</h3>
+            <div class="field" data-key="ageNow" data-kind="number"><label for="in-ageNow">Alter heute</label><input id="in-ageNow" name="ageNow" type="number" inputmode="numeric" min="0" max="100" step="1"></div>
+            <div class="field" data-key="ageTarget" data-kind="number"><label for="in-ageTarget">Horizont: bis Alter</label><input id="in-ageTarget" name="ageTarget" type="number" inputmode="numeric" min="1" max="110" step="1" aria-describedby="horizon-out"><span class="hint" id="horizon-out"></span></div>
+            <div class="field" data-key="taxRate" data-kind="number"><label for="in-taxRate">Steuer auf ETF-Gewinn (%)</label><input id="in-taxRate" name="taxRate" type="number" inputmode="decimal" min="0" max="100" step="0.001"></div>
+            <div class="field" data-key="exemption" data-kind="number"><label for="in-exemption">Teilfreistellung (%) <span class="hint">versteuert werden 100 − x %</span></label><input id="in-exemption" name="exemption" type="number" inputmode="decimal" min="0" max="100" step="1"></div>
+            <div class="field" data-key="inflation" data-kind="number"><label for="in-inflation">Inflation für die Kaufkraft-Ansicht (%)</label><input id="in-inflation" name="inflation" type="number" inputmode="decimal" min="0" max="20" step="0.1"></div>
+          </div>
+        </form>
+
+        <div class="toolbar" style="margin-top:var(--s5)">
+          <button class="btn" type="button" id="btn-reset">Zurücksetzen</button>
+          <button class="btn" type="button" id="btn-export">Als JSON exportieren</button>
+          <button class="btn" type="button" id="btn-import">JSON importieren</button>
+          <input type="file" id="file-import" accept="application/json,.json" class="vh" tabindex="-1" aria-hidden="true">
+          <span class="status" id="io-status" role="status" aria-live="polite"></span>
+        </div>
+        <p class="muted" style="font-size:14px;margin:var(--s2) 0 0">Eingaben werden nur in diesem Browser gespeichert. Krypto wird ohne Steuer und ohne Schwankung gerechnet (Annahme).</p>
+      </div>
+    </section>
+
+    <!-- № 02 Überblick -->
+    <section role="tabpanel" id="panel-2" aria-labelledby="tab-2" tabindex="0" hidden>
+      <div class="section">
+        <h2 class="label"><span class="no">№ 02</span> — Überblick</h2>
+        <div class="kpis" id="kpis"></div>
+        <figure>
+          <div class="chart" id="chart-overview" role="img" aria-label="Verlauf des Gesamtvermögens ohne und mit Darlehen"></div>
+          <ul class="legend" id="legend-overview"></ul>
+          <figcaption><b>ABB. 01</b><span id="cap-overview">Gesamtvermögen ohne und mit Darlehen</span></figcaption>
+        </figure>
+        <p class="muted" style="font-size:14px">Gesamtvermögen = Krypto + eigenes ETF-Depot + Darlehensgeld im ETF − Restschuld.</p>
+      </div>
+    </section>
+
+    <!-- № 03 Szenarien -->
+    <section role="tabpanel" id="panel-3" aria-labelledby="tab-3" tabindex="0" hidden>
+      <div class="section">
+        <h2 class="label"><span class="no">№ 03</span> — Szenarien</h2>
+        <p class="prose">Krypto-Wachstum und Sparrate variiert, alle anderen Eingaben wie in № 01. Die markierte Zeile entspricht den aktuellen Eingaben.</p>
+        <div class="table-scroll"><table class="data" id="table-scenarios"></table></div>
+      </div>
+    </section>
+
+    <!-- № 04 Risiko -->
+    <section role="tabpanel" id="panel-4" aria-labelledby="tab-4" tabindex="0" hidden>
+      <div class="section">
+        <h2 class="label"><span class="no">№ 04</span> — Risiko</h2>
+        <p class="status" id="mc-status" role="status" aria-live="polite"></p>
+        <div id="note-risiko"></div>
+        <div class="kpis" id="risk-kpis"></div>
+        <div class="table-scroll"><table class="data" id="table-risk"></table></div>
+        <figure>
+          <div class="chart" id="chart-hist" role="img" aria-label="Histogramm der Endwerte mit Darlehen"></div>
+          <ul class="legend" id="legend-hist"></ul>
+          <figcaption><b>ABB. 02</b><span id="cap-hist">Verteilung der Endwerte mit Darlehen</span></figcaption>
+        </figure>
+        <p class="muted" style="font-size:14px" id="mc-method"></p>
+      </div>
+    </section>
+
+    <!-- № 05 Zinsgrenze -->
+    <section role="tabpanel" id="panel-5" aria-labelledby="tab-5" tabindex="0" hidden>
+      <div class="section">
+        <h2 class="label"><span class="no">№ 05</span> — Zinsgrenze</h2>
+        <p class="prose" id="be-text"></p>
+        <figure>
+          <div class="chart" id="chart-rates" role="img" aria-label="Median-Gewinn und 5-%-Fall nach Darlehenszins"></div>
+          <ul class="legend" id="legend-rates"></ul>
+          <figcaption><b>ABB. 03</b>Gewinn durch das Darlehen nach Darlehenszins</figcaption>
+        </figure>
+        <div class="table-scroll"><table class="data" id="table-rates"></table></div>
+      </div>
+    </section>
+
+    <!-- № 06 Nach 100.000 € -->
+    <section role="tabpanel" id="panel-6" aria-labelledby="tab-6" tabindex="0" hidden>
+      <div class="section">
+        <h2 class="label"><span class="no">№ 06</span> — Nach 100.000 €</h2>
+        <p class="prose">Zeit bis zu den nächsten Meilensteinen mit Darlehen (brutto, nominal), gerechnet ab heute. Krypto, Darlehen und Tilgung wie in № 01; die Rechnung läuft hier auch über den Horizont hinaus.</p>
+        <div class="table-scroll"><table class="data" id="table-milestones"></table></div>
+      </div>
+    </section>
+
+    <!-- № 07 Gespräch mit den Eltern -->
+    <section role="tabpanel" id="panel-7" aria-labelledby="tab-7" tabindex="0" hidden>
+      <div class="section">
+        <h2 class="label"><span class="no">№ 07</span> — Gespräch mit den Eltern</h2>
+        <div class="note" role="note"><p><span class="cap">STEUER</span>Ein zinsloses Darlehen kann als Schenkung des Zinsvorteils gelten. Vor Vertragsabschluss mit Steuerberater oder Notar klären.</p></div>
+        <div id="talk">
+          <details>
+            <summary>Argumente für den Vorschlag</summary>
+            <div>
+              <div class="row prio"><span><b>Zeit im Markt:</b> Geld, das heute investiert wird, hat bis zur Rückzahlung viele Jahre zum Wachsen. Bei 0 % Zins gehört der gesamte Ertrag über dem Darlehensbetrag mir, das Darlehen selbst kommt vollständig zurück.</span></div>
+              <div class="row"><span><b>Breit gestreut:</b> Ein All-World-ETF verteilt das Geld auf Tausende Unternehmen weltweit, kein Einzelwert-Risiko, geringe Kosten.</span></div>
+              <div class="row"><span><b>Klare Rückzahlung:</b> Nach der tilgungsfreien Zeit wird monatlich in festen Raten getilgt (siehe Rate in №&nbsp;02).</span></div>
+              <div class="row"><span><b>Transparenz:</b> Ich kann jederzeit zeigen, wo das Geld liegt und wie es sich entwickelt.</span></div>
+              <div class="row"><span><b>Rechnung offen gelegt:</b> Diese Gedankenrechnung zeigt nicht nur den Mittelwert, sondern auch schlechte Fälle (№&nbsp;04) und wie stark ein Zins den Vorteil auffrisst (№&nbsp;05).</span></div>
+            </div>
+          </details>
+          <details>
+            <summary>Ehrliche Risiken</summary>
+            <div>
+              <div class="row prio"><span><b>Kursverluste:</b> Nach zehn Jahren kann der ETF weniger wert sein als das Darlehen. Die Wahrscheinlichkeit und die Höhe der Lücke stehen in №&nbsp;04.</span></div>
+              <div class="row"><span><b>Schlechter Zeitpunkt:</b> Fällt ein Crash in die Tilgungsphase, muss in Variante B zu niedrigen Kursen verkauft werden.</span></div>
+              <div class="row"><span><b>Mein Einkommen:</b> In Variante A kommen die Raten aus meinem Einkommen. Arbeitslosigkeit, Krankheit oder Elternzeit können das erschweren.</span></div>
+              <div class="row"><span><b>Familienfrieden:</b> Geld unter Verwandten kann Beziehungen belasten, besonders wenn es schlecht läuft oder Geschwister sich benachteiligt fühlen.</span></div>
+              <div class="row"><span><b>Geldbedarf der Eltern:</b> Brauchen die Eltern das Geld früher (Pflege, Notfall), passt der Plan womöglich nicht.</span></div>
+              <div class="row"><span><b>Steuer und Recht:</b> Zinsloses Darlehen, Schenkung, Erbausgleich: Das muss vorher geklärt sein (siehe Note STEUER oben).</span></div>
+            </div>
+          </details>
+          <details>
+            <summary>Mögliche Absicherungen</summary>
+            <div>
+              <div class="row prio"><span><b>Schriftlicher Vertrag:</b> Betrag, Zins, tilgungsfreie Zeit, Raten, Fälligkeit und was im Todesfall gilt; von beiden Seiten unterschrieben.</span></div>
+              <div class="row"><span><b>Sonderkündigung:</b> Recht der Eltern auf vorzeitige Rückzahlung bei eigenem Bedarf, mit angemessener Frist (zum Beispiel sechs Monate).</span></div>
+              <div class="row"><span><b>Verlängerung:</b> Option, die tilgungsfreie Zeit zu verlängern, falls die Kurse am Ende der Frist stark gefallen sind, statt mit Verlust zu verkaufen.</span></div>
+              <div class="row"><span><b>Jährlicher Bericht:</b> Einmal im Jahr ein kurzer Stand: Depotwert, Restschuld, Abweichung von dieser Rechnung.</span></div>
+              <div class="row"><span><b>Getrenntes Depot:</b> Das Darlehensgeld liegt in einem eigenen Depot, damit es nicht mit meinem übrigen Vermögen vermischt wird.</span></div>
+              <div class="row"><span><b>Puffer:</b> Ein Notgroschen außerhalb des ETF, damit Raten auch in schlechten Jahren gezahlt werden können.</span></div>
+            </div>
+          </details>
+          <details>
+            <summary>Einwände und Antworten</summary>
+            <div>
+              <div class="row"><span><b>„Was, wenn die Börse einbricht?“</b> Dann bleibt das Darlehen trotzdem voll geschuldet. Ich zahle es aus meinem Einkommen zurück (Variante A) oder verlängere nach Absprache, statt im Tief zu verkaufen.</span></div>
+              <div class="row"><span><b>„Warum nicht einfach selbst sparen?“</b> Das tue ich weiter. Das Darlehen bringt Zeit im Markt, die ich mit der Sparrate allein nicht aufholen kann; der Unterschied steht in №&nbsp;02.</span></div>
+              <div class="row"><span><b>„Wir brauchen das Geld vielleicht selbst.“</b> Dafür gibt es die Sonderkündigung. Ein ETF lässt sich an jedem Börsentag verkaufen.</span></div>
+              <div class="row"><span><b>„Ist das gegenüber den Geschwistern fair?“</b> Ein Darlehen ist keine Schenkung, es wird vollständig zurückgezahlt. Trotzdem offen besprechen und schriftlich festhalten.</span></div>
+              <div class="row"><span><b>„Sollten wir nicht wenigstens Zinsen nehmen?“</b> Möglich. № 05 zeigt, bis zu welchem Zins sich der Vorschlag im Median noch lohnt.</span></div>
+            </div>
+          </details>
+        </div>
+      </div>
+    </section>
+  </div>
+</main>
+
+<footer>
+  <div class="wrap cap">
+    <span>Darlehen-Tracker · Gedankenrechnung</span>
+    <span id="foot-status">Läuft lokal im Browser</span>
+  </div>
+</footer>
+<script type="module" src="./app.js"></script>
+</body>
+</html>
