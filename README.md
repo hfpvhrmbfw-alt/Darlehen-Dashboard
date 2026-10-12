@@ -9,7 +9,7 @@ Installierbare PWA, rein statisch: kein Build-Schritt, keine Abhängigkeiten zur
 ## Struktur
 
 ```
-index.html             Markup und CSS (Hausstil Web v1.2, Hell/Dunkel)
+index.html             Markup und CSS (Stil Tinte aus dem Castra-Designsystem, Hell/Dunkel)
 app.js                 Oberfläche, Zustand (localStorage), Diagramme (Inline-SVG)
 calc.js                Rechenkern als reine Funktionen ohne DOM
 worker.js              Web Worker für die Monte-Carlo-Simulation
@@ -118,4 +118,4 @@ Alle Pfade sind relativ (`./`), `start_url` und `scope` sind `./`, deshalb funkt
 
 ## Lizenzen
 
-Schriften: IBM Plex Mono, IBM Plex Sans (IBM) und Source Serif 4 (Adobe), jeweils SIL Open Font License 1.1, bezogen über die npm-Pakete `@fontsource/*`. Lizenztexte in `fonts/`.
+Schriften: Space Grotesk (Florian Karsten), Inter (The Inter Project Authors) und JetBrains Mono (JetBrains), jeweils SIL Open Font License 1.1, bezogen über Google Fonts und selbst gehostet. Lizenztexte in `fonts/`.
