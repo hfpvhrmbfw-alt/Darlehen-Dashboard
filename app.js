@@ -97,8 +97,8 @@ function applyTheme() {
   btn.setAttribute('aria-label', `Farbschema: ${THEME_TEXT[state.theme]}. Klicken zum Wechseln.`);
   const metas = $$('meta[name="theme-color"]');
   metas.forEach((m) => {
-    const sys = m.media.includes('dark') ? '#1D1916' : '#E3DAD3';
-    m.content = state.theme === 'auto' ? sys : state.theme === 'dark' ? '#1D1916' : '#E3DAD3';
+    const sys = m.media.includes('dark') ? '#12151E' : '#DADDE5';
+    m.content = state.theme === 'auto' ? sys : state.theme === 'dark' ? '#12151E' : '#DADDE5';
   });
 }
 $('#theme-toggle').addEventListener('click', () => {

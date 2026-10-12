@@ -1,6 +1,6 @@
 // Service Worker: alle App-Dateien beim Installieren vorab speichern, danach Cache zuerst.
 // Bei jeder Änderung an einer App-Datei VERSION erhöhen, damit die UPDATE-Note erscheint.
-const VERSION = '1.1.0';
+const VERSION = '1.2.0';
 const PREFIX = 'darlehen-tracker-';
 const CACHE = `${PREFIX}${VERSION}`;
 
@@ -17,13 +17,11 @@ const ASSETS = [
   './icons/icon-512.png',
   './icons/icon-maskable-512.png',
   './icons/apple-touch-icon-180.png',
-  './fonts/SourceSerif4-700.woff2',
-  './fonts/IBMPlexMono-400.woff2',
-  './fonts/IBMPlexMono-500.woff2',
-  './fonts/IBMPlexMono-600.woff2',
-  './fonts/IBMPlexMono-600-numero.woff2',
-  './fonts/IBMPlexSans-400.woff2',
-  './fonts/IBMPlexSans-600.woff2',
+  './fonts/Inter-latin.woff2',
+  './fonts/Inter-cyrillic.woff2',
+  './fonts/JetBrainsMono-latin.woff2',
+  './fonts/JetBrainsMono-cyrillic.woff2',
+  './fonts/SpaceGrotesk-latin.woff2',
 ];
 
 self.addEventListener('install', (event) => {
