@@ -43,3 +43,12 @@ export const IMPORT_ERRORS = {
   'no-fields': 'keine bekannten Felder',
   'newer-version': 'die Datei stammt aus einer neueren Version der App',
 };
+
+/** Beschriftungen der Arten aus HOLDING_KINDS (model.js). */
+export const KIND_LABELS = {
+  etf: 'ETF', aktie: 'Aktie', krypto: 'Krypto', anleihe: 'Anleihe', cash: 'Konto/Tagesgeld', sonstiges: 'Sonstiges',
+};
+/** Herkunft eines Werts aus `holdingValue` (portfolio.js). */
+export const SOURCE_LABELS = { kurs: 'Kurs', manuell: 'eingetragen', fehlt: 'fehlt' };
+/** Zeiträume aus RANGES (model.js) als Satzteil. */
+export const RANGE_LABELS = { '1M': 'im letzten Monat', '3M': 'in den letzten 3 Monaten', YTD: 'seit Jahresbeginn', '1J': 'im letzten Jahr', MAX: 'seit Beginn' };

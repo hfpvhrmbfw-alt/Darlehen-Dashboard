@@ -7,6 +7,7 @@ Ziel: Wenn die Web-Oberfläche wegfällt, bleiben Datenmodell, Rechenkern und Te
 | Datei | Schicht | In Swift |
 |---|---|---|
 | `src/model.js` | Modell | 1:1: `struct LoanInput: Codable`, `enum Variant`, `enum PlanMode`, `sanitize`, `parseImport`, `SCHEMA_VERSION` |
+| `src/portfolio.js` | Logik | 1:1 als reine Funktionen (`totals`, `makeSnapshot`, `periodChange`, …), „heute“ als Parameter |
 | `src/loan.js` | Logik | 1:1 als reine Funktionen (z. B. `enum Loan { static func compare(...) }`) |
 | `tests/fixtures/*.json` | Testfälle | 1:1 ins Test-Bundle, gleiche Toleranz `1e-6` |
 | `src/texts.js` | Texte | neu als String Catalog (`Localizable.xcstrings`), Schlüssel = Codes aus `validate` und `parseImport` |
@@ -53,6 +54,27 @@ struct ExportFile: Codable {          // gleiches JSON wie die Web-App
 - **Zufall:** Die Monte-Carlo-Simulation nutzt mulberry32 mit Startwert `20261006` und Box-Muller. Für gleiche Ergebnisse in Swift dieselben Ganzzahl-Operationen (32 Bit, `&+`, `&*`) verwenden.
 - **Import:** Dateien mit höherer `version` ablehnen, ältere über `upgradeRaw` hochheben, jede Eingabe durch `sanitize`.
 
-## Ausblick Portfolio-Tracker
+## Vermögen
 
-Für den geplanten Vermögens-Tracker kommen Konten, Positionen, Kurse und Stände dazu. Dort gelten zusätzlich: Beträge als ganze Cent (`Int`), Stückzahlen als `Decimal`, Datum als `"JJJJ-MM-TT"`, IDs als UUID-Strings. Liegt auf dem Mac schon ein Swift-Modell vor, richten sich die Feldnamen danach.
+Gespeichert unter `wolpertinger:vermoegen:v1`, im Export als `vermoegen` (Exportversion 2). Beträge als ganze Cent (`Int`), Datum als `"JJJJ-MM-TT"`, IDs als UUID-Strings. Liegt auf dem Mac schon ein Swift-Modell vor, richten sich die Feldnamen danach.
+
+```swift
+enum HoldingKind: String, Codable { case etf, aktie, krypto, anleihe, cash, sonstiges }
+struct Account: Codable, Identifiable { var id: String; var name: String }
+struct Holding: Codable, Identifiable {
+    var id: String; var accountId: String; var name: String; var kind: HoldingKind
+    var symbol: String?; var quantity: Decimal?; var valueCents: Int?   // Kurs × Anteile, sonst valueCents
+}
+struct Debt: Codable, Identifiable { var id: String; var name: String; var amountCents: Int }
+struct Deposit: Codable, Identifiable { var id: String; var accountId: String; var date: String; var amountCents: Int } // Entnahme negativ
+struct Price: Codable { var price: Double; var currency: String; var time: String?; var fetchedAt: String?; var via: String?; var name: String? }
+struct FxRate: Codable { var rate: Double; var fetchedAt: String? }       // 1 Einheit Fremdwährung in EUR
+struct Snapshot: Codable { var date: String; var assetsCents: Int; var debtCents: Int; var depositsCents: Int; var byKind: [HoldingKind: Int] }
+struct PortfolioSettings: Codable { var loanAsDebt = true; var lastBackup: String?; var range = "3M" }
+struct Portfolio: Codable {
+    var accounts: [Account]; var holdings: [Holding]; var debts: [Debt]; var deposits: [Deposit]
+    var prices: [String: Price]; var fx: [String: FxRate]; var snapshots: [Snapshot]; var settings: PortfolioSettings
+}
+```
+
+Tagesstand: einer pro Tag, ein neuer Stand vom selben Tag ersetzt den alten (`upsertSnapshot`). Rendite im Zeitraum: Gewinn / (Anfangswert + halbe Einzahlungen).
