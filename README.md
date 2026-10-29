@@ -8,18 +8,25 @@ Installierbare PWA, rein statisch: kein Build-Schritt, keine Abhängigkeiten zur
 
 ## Struktur
 
+Die App ist in Schichten getrennt (Modell, Logik, Speicher, Texte, Oberfläche), damit Modell, Rechenkern und Tests später ohne Neudenken nach Swift übertragen werden können. Abhängigkeiten zeigen nur nach unten: Oberfläche → Logik → Modell, Oberfläche → Speicher, Oberfläche → Texte.
+
 ```
 index.html             Markup und CSS (Stil Tinte aus dem Castra-Designsystem, Hell/Dunkel)
-app.js                 Oberfläche, Zustand (localStorage), Diagramme (Inline-SVG)
-calc.js                Rechenkern als reine Funktionen ohne DOM
-worker.js              Web Worker für die Monte-Carlo-Simulation
-quote.js               Kursabruf bei Yahoo Finance (nur auf Knopfdruck)
+src/model.js           Datenmodell: Standardwerte, feste Auswahllisten, sanitize, Export/Import mit Versionsprüfung
+src/loan.js            Rechenkern des Darlehen-Rechners: reine Funktionen ohne DOM, Speicher und Uhr; liefert Daten und Codes, keine Texte
+src/format.js          Zahlenformat für die Anzeige (deutsch)
+src/texts.js           Beschriftungen und Meldungen zu den Codes aus Modell und Logik
+src/storage.js         Speicher-Schnittstelle (localStorage mit try/catch)
+src/quotes.js          Kursabruf bei Yahoo Finance (nur auf Knopfdruck)
+src/app.js             Oberfläche, Zustand, Diagramme (Inline-SVG); einzige Stelle, die „heute“ aus der Uhr liest
+src/worker.js          Web Worker für die Monte-Carlo-Simulation
 proxy/                 Vorlage für einen eigenen Proxy (Cloudflare Worker), nicht Teil der App
 sw.js                  Service Worker (vorab zwischenspeichern, Cache zuerst)
 manifest.webmanifest   PWA-Manifest
 fonts/                 woff2, selbst gehostet (SIL Open Font License, Lizenztexte liegen bei)
 icons/                 favicon.svg, 192, 512, maskable 512, apple-touch-icon 180
-tests/                 Prüfwerte und Tests für Rechenkern, Rückzahlungsplan und Kursabruf (node --test)
+tests/                 Prüfwerte, Fixtures (tests/fixtures/*.json), Modell- und Kursabruf-Tests (node --test)
+docs/SWIFT.md          Was 1:1 nach Swift geht und was neu entsteht
 package.json           nur "type": "module" und das Test-Skript, keine Pakete
 .github/workflows/     test.yml führt nur die Tests aus (kein Deployment)
 ```
@@ -36,12 +43,12 @@ python3 -m http.server 8000
 ## Tests
 
 ```sh
-node --test
+npm test
 ```
 
 Node 20 oder neuer. Die Tests prüfen die Prüfwerte (Abweichung höchstens 1 %, Simulation mit den angegebenen Toleranzen) und einige Plausibilitäten.
 
-## Rechenmodell (calc.js)
+## Rechenmodell (src/loan.js)
 
 Monatsschritte über den Horizont (Zielalter − Alter heute):
 
@@ -105,7 +112,7 @@ Lokal weiterarbeiten:
 ```sh
 git clone https://github.com/hfpvhrmbfw-alt/Darlehen-Dashboard.git
 cd Darlehen-Dashboard
-node --test
+npm test
 ```
 
 ## GitHub Pages einrichten
