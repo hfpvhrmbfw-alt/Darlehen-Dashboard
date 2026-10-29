@@ -1,33 +1,12 @@
-// Rechenkern des Darlehen-Trackers.
-// Reine Funktionen ohne DOM, damit sie im Browser, im Web Worker und mit "node --test" laufen.
-// Gedankenrechnung, keine Anlage-, Rechts- oder Steuerberatung.
+// Rechenkern des Darlehen-Rechners.
+// Reine Funktionen ohne DOM, Speicher und Uhr, damit sie im Browser, im Web Worker und mit "node --test" laufen.
+// Ergebnisse sind Daten (Zahlen, Codes), keine Anzeigetexte. Gedankenrechnung, keine Anlage-, Rechts- oder Steuerberatung.
 
-export const DEFAULTS = Object.freeze({
-  crypto: 18800,        // Krypto-Depot heute in €
-  cryptoGrowth: 10,     // Wachstum Krypto pro Jahr in %
-  etf: 11000,           // ETF-Bestand heute in €
-  savings: 200,         // monatliche ETF-Sparrate in €
-  etfReturn: 6,         // ETF-Rendite pro Jahr in %
-  volatility: 16,       // Schwankung pro Jahr in %
-  loan: 20000,          // Darlehensbetrag in €
-  loanRate: 0,          // Darlehenszins pro Jahr in %
-  grace: 10,            // tilgungsfreie Zeit in Jahren
-  term: 10,             // Tilgungsdauer in Jahren (5, 10 oder 20)
-  variant: 'A',         // A = Raten aus dem Einkommen, B = Raten durch Verkauf aus dem ETF
-  ageNow: 30,           // Alter heute
-  ageTarget: 60,        // Zielalter (Horizont = Zielalter − Alter heute)
-  taxRate: 26.375,      // Steuer auf ETF-Gewinn in %
-  exemption: 30,        // Teilfreistellung in %
-  inflation: 2,         // Inflation pro Jahr in %
-  loanEtfNow: 0,        // Darlehensgeld im ETF heute in € (0 = noch nicht investiert, dann gilt der Darlehensbetrag)
-  planMode: 'standard', // Rückzahlungsplan: standard (tilgungsfrei + Laufzeit), simple (Betrag ab Monat), custom (Monate einzeln)
-  planAmount: 500,      // einfacher Plan: Auszahlung pro Monat in €
-  planStart: '',        // einfacher Plan: erster Zahlmonat "JJJJ-MM" (leer = nach der tilgungsfreien Zeit)
-  planCustom: [],       // individueller Plan: [{ m: "JJJJ-MM", a: Betrag }]
-});
+import { DEFAULTS } from './model.js';
+export { DEFAULTS };
 
-/** Aktueller Monat als "JJJJ-MM" (Bezugspunkt "heute"). */
-export function currentMonth(d = new Date()) {
+/** Monat eines Datums als "JJJJ-MM". Das Datum ("heute") übergibt die Oberfläche. */
+export function currentMonth(d) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 }
 /** Monate von ref bis target (beide "JJJJ-MM"); null bei ungültiger Eingabe. */
@@ -54,7 +33,8 @@ export function toModel(input) {
   const num = (v, d) => (Number.isFinite(Number(v)) ? Number(v) : d);
   const horizonYears = Math.max(0, Math.round(num(p.ageTarget, 60) - num(p.ageNow, 30)));
   const loan = Math.max(0, num(p.loan, 0));
-  const ref = /^\d{4}-\d{2}$/.test(String(p.refMonth || '')) ? p.refMonth : currentMonth();
+  // Bezugsmonat "heute" kommt von außen; ohne ihn sind nur Pläne mit Kalendermonaten nicht rechenbar.
+  const ref = /^\d{4}-\d{2}$/.test(String(p.refMonth || '')) ? p.refMonth : null;
   let graceMonths = Math.max(0, Math.round(num(p.grace, 0) * 12));
   const termMonths = Math.max(0, Math.round(num(p.term, 0) * 12));
   // Rückzahlungsplan als Liste von Monatsbeträgen (Index k = Monate ab heute) oder Regel
@@ -288,45 +268,47 @@ export function milestones(input, targets, maxYears = 70) {
   });
 }
 
-/** Plausibilitätsprüfung der Eingaben. Gibt eine Liste von Hinweistexten zurück. */
+/**
+ * Plausibilitätsprüfung der Eingaben.
+ * @returns {Array<{code: string, field?: string, [k: string]: number|string}>} Befunde als Codes mit Werten; Texte baut die Oberfläche.
+ */
 export function validate(input) {
   const p = { ...DEFAULTS, ...input };
   const m = toModel(p);
   const out = [];
   const fields = ['crypto', 'cryptoGrowth', 'etf', 'savings', 'etfReturn', 'volatility', 'loan', 'loanRate', 'grace', 'term', 'ageNow', 'ageTarget', 'taxRate', 'exemption', 'inflation'];
   for (const k of fields) {
-    if (!Number.isFinite(Number(p[k]))) out.push(`Das Feld „${LABELS[k]}“ enthält keine gültige Zahl.`);
-    else if (Number(p[k]) < 0) out.push(`Das Feld „${LABELS[k]}“ ist negativ; gerechnet wird mit 0.`);
+    if (!Number.isFinite(Number(p[k]))) out.push({ code: 'not-a-number', field: k });
+    else if (Number(p[k]) < 0) out.push({ code: 'negative', field: k });
   }
-  if (m.horizonYears <= 0) out.push('Das Zielalter muss über dem heutigen Alter liegen, sonst gibt es keinen Horizont.');
+  if (m.horizonYears <= 0) out.push({ code: 'no-horizon' });
   const std = m.plan.mode === 'standard';
-  if (std && m.loan > 0 && m.termMonths === 0) out.push('Die Tilgungsdauer ist 0 Jahre; das Darlehen würde nie getilgt.');
+  if (std && m.loan > 0 && m.termMonths === 0) out.push({ code: 'term-zero' });
   if (std && m.loan > 0 && m.horizonYears > 0 && m.graceMonths + m.termMonths > m.months) {
-    const y = (mo) => fmtNum(mo / 12, mo % 12 ? 1 : 0);
-    out.push(`Tilgungsfreie Zeit (${y(m.graceMonths)} J.) und Tilgung (${y(m.termMonths)} J.) dauern länger als der Horizont (${m.horizonYears} J.); am Ende bleibt eine Restschuld.`);
+    out.push({ code: 'plan-exceeds-horizon', graceMonths: m.graceMonths, termMonths: m.termMonths, horizonYears: m.horizonYears });
   }
   if (m.loan > 0 && m.variant === 'A' && monthlyPayment(m) > m.savings) {
-    out.push(`Die Rate von ${fmtNum(monthlyPayment(m), 0)} € ist höher als die Sparrate von ${fmtNum(m.savings, 0)} €. In Variante A muss die Differenz zusätzlich aus dem Einkommen kommen; das Modell zieht sie vom eigenen Depot ab.`);
+    out.push({ code: 'payment-over-savings', payment: monthlyPayment(m), savings: m.savings });
   }
   if (!std && m.loan > 0) {
     if (m.plan.mode === 'simple') {
-      if (p.planStart && monthDiff(m.ref, p.planStart) === null) out.push('Der Startmonat des Rückzahlungsplans ist ungültig (Format JJJJ-MM).');
-      else if (p.planStart && monthDiff(m.ref, p.planStart) < 1) out.push('Der Startmonat des Rückzahlungsplans liegt nicht in der Zukunft; gerechnet wird ab dem nächsten Monat.');
-      if (m.plan.amount <= 0) out.push('Die monatliche Auszahlung im Rückzahlungsplan ist 0 €; das Darlehen würde nie getilgt.');
+      if (p.planStart && monthDiff(m.ref, p.planStart) === null) out.push({ code: 'plan-start-invalid' });
+      else if (p.planStart && monthDiff(m.ref, p.planStart) < 1) out.push({ code: 'plan-start-past' });
+      if (m.plan.amount <= 0) out.push({ code: 'plan-amount-zero' });
     } else {
-      if (m.plan.first === null) out.push('Der individuelle Rückzahlungsplan enthält keine künftigen Monate mit Betrag; das Darlehen würde nie getilgt.');
-      if (m.plan.past > 0) out.push(`${m.plan.past} Monat(e) im individuellen Plan liegen nicht in der Zukunft und werden nicht gerechnet.`);
+      if (m.plan.first === null) out.push({ code: 'plan-custom-empty' });
+      if (m.plan.past > 0) out.push({ code: 'plan-custom-past', count: m.plan.past });
       let sum = 0;
       for (const a of m.plan.amounts.values()) sum += a;
-      if (sum > m.loan + 0.5) out.push(`Der individuelle Plan zahlt ${fmtNum(sum, 0)} € zurück, das Darlehen beträgt ${fmtNum(m.loan, 0)} €. Gerechnet wird nur bis zur Restschuld 0.`);
+      if (sum > m.loan + 0.5) out.push({ code: 'plan-custom-over', sum, loan: m.loan });
     }
     const plan = repaymentPlan(p);
-    if (m.horizonYears > 0 && plan.debtEnd > 0.5) out.push(`Bis zum Horizont (${m.horizonYears} J.) ist das Darlehen laut Plan nicht getilgt; es bleibt eine Restschuld von ${fmtNum(plan.debtEnd, 0)} €.`);
+    if (m.horizonYears > 0 && plan.debtEnd > 0.5) out.push({ code: 'plan-debt-left', horizonYears: m.horizonYears, debt: plan.debtEnd });
   }
-  if (m.exemption > 1 || Number(p.exemption) > 100) out.push('Die Teilfreistellung kann nicht über 100 % liegen.');
-  if (Number(p.taxRate) > 100) out.push('Der Steuersatz kann nicht über 100 % liegen.');
-  if (Number(p.etfReturn) < 3 || Number(p.etfReturn) > 9) out.push('Die ETF-Rendite liegt außerhalb der vorgesehenen Spanne von 3 bis 9 %.');
-  if (Number(p.volatility) > 60) out.push('Eine Schwankung über 60 % pro Jahr ist für einen Welt-ETF unrealistisch.');
+  if (m.exemption > 1 || Number(p.exemption) > 100) out.push({ code: 'exemption-over-100' });
+  if (Number(p.taxRate) > 100) out.push({ code: 'tax-over-100' });
+  if (Number(p.etfReturn) < 3 || Number(p.etfReturn) > 9) out.push({ code: 'return-out-of-range' });
+  if (Number(p.volatility) > 60) out.push({ code: 'volatility-unrealistic' });
   return out;
 }
 
@@ -340,7 +322,7 @@ export function repaymentPlan(input) {
   const res = engine(m, () => f, { record: true });
   const rows = [];
   for (const pt of res.series) {
-    if (pt.pay > 0) rows.push({ k: pt.month, month: addMonths(m.ref, pt.month), pay: pt.pay, sold: pt.sold, tax: pt.tax, debt: pt.debt });
+    if (pt.pay > 0) rows.push({ k: pt.month, month: m.ref ? addMonths(m.ref, pt.month) : null, pay: pt.pay, sold: pt.sold, tax: pt.tax, debt: pt.debt });
   }
   const total = rows.reduce((s, r) => s + r.pay, 0);
   return {
@@ -368,14 +350,6 @@ export function buildCustomPlan(loan, amount, startMonth, maxMonths = 600) {
   }
   return rows;
 }
-
-export const LABELS = {
-  crypto: 'Krypto-Depot heute', cryptoGrowth: 'Wachstum Krypto pro Jahr', etf: 'ETF-Bestand heute',
-  savings: 'Monatliche ETF-Sparrate', etfReturn: 'ETF-Rendite pro Jahr', volatility: 'Schwankung',
-  loan: 'Darlehen', loanRate: 'Darlehenszins', grace: 'Tilgungsfreie Zeit', term: 'Tilgung über',
-  ageNow: 'Alter heute', ageTarget: 'Zielalter', taxRate: 'Steuer auf ETF-Gewinn',
-  exemption: 'Teilfreistellung', inflation: 'Inflation',
-};
 
 // ---------- Monte-Carlo ----------
 
@@ -516,18 +490,3 @@ export function breakEven(rows) {
   }
   return null;
 }
-
-// ---------- Format ----------
-
-const nfCache = new Map();
-export function fmtNum(v, digits = 0) {
-  if (v === null || v === undefined || !Number.isFinite(v)) return '–';
-  const key = digits;
-  if (!nfCache.has(key)) nfCache.set(key, new Intl.NumberFormat('de-DE', { minimumFractionDigits: digits, maximumFractionDigits: digits }));
-  let r = Math.round(v * 10 ** digits) / 10 ** digits;
-  if (r === 0) r = 0; // keine „−0“
-  return nfCache.get(key).format(r).replace('-', '−');
-}
-export function fmtEur(v, digits = 0) { return Number.isFinite(v) ? `${fmtNum(v, digits)} €` : '–'; }
-export function fmtPct(v, digits = 1) { return Number.isFinite(v) ? `${fmtNum(v * 100, digits)} %` : '–'; }
-export function fmtYears(v, digits = 1) { return v === null || !Number.isFinite(v) ? 'nicht erreicht' : `${fmtNum(v, digits)} J.`; }

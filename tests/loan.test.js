@@ -3,8 +3,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   DEFAULTS, compare, monteCarlo, monthlyPayment, toModel, netValue, validate,
-  fmtEur, fmtNum, quantile, breakEven, rng,
-} from '../calc.js';
+  quantile, breakEven, rng,
+} from '../src/loan.js';
+import { fmtEur, fmtNum } from '../src/format.js';
+import { validationText } from '../src/texts.js';
 
 // Abweichung höchstens 1 %
 function near(actual, expected, tol = 0.01, label = '') {
@@ -97,8 +99,9 @@ test('Netto-Ansicht: Gewinn wird mit 26,375 % auf 70 % versteuert', () => {
 
 test('Plausibilitätsprüfung meldet Tilgung über den Horizont hinaus', () => {
   assert.deepEqual(validate(DEFAULTS), []);
-  const msgs = validate({ ...DEFAULTS, grace: 20, term: 20 });
-  assert.ok(msgs.some((t) => t.includes('länger als der Horizont')));
+  const issues = validate({ ...DEFAULTS, grace: 20, term: 20 });
+  assert.ok(issues.some((v) => v.code === 'plan-exceeds-horizon'));
+  assert.ok(issues.map(validationText).some((t) => t.includes('länger als der Horizont')));
 });
 
 test('Hilfsfunktionen: Format und Statistik', () => {
@@ -111,7 +114,7 @@ test('Hilfsfunktionen: Format und Statistik', () => {
 });
 
 // ---------- Rückzahlungsplan ----------
-import { repaymentPlan, buildCustomPlan, monthDiff, addMonths } from '../calc.js';
+import { repaymentPlan, buildCustomPlan, monthDiff, addMonths } from '../src/loan.js';
 
 test('Monatsrechnung: Abstand und Addition', () => {
   assert.equal(monthDiff('2026-10', '2036-11'), 121);
@@ -148,8 +151,9 @@ test('Individueller Plan: Monate einzeln, Restschuld und Warnung', () => {
   near(p.rows[0].pay, 3000, 1e-9, 'erste Zahlung');
   const short = repaymentPlan({ ...base, refMonth: '2026-10', planMode: 'custom', planCustom: rows.slice(0, 5) });
   near(short.debtEnd, 20000 - 3000 - 4000, 1e-9, 'Restschuld');
-  const msgs = validate({ ...base, refMonth: '2026-10', planMode: 'custom', planCustom: rows.slice(0, 5) });
-  assert.ok(msgs.some((t) => t.includes('Restschuld')));
+  const issues = validate({ ...base, refMonth: '2026-10', planMode: 'custom', planCustom: rows.slice(0, 5) });
+  assert.ok(issues.some((v) => v.code === 'plan-debt-left'));
+  assert.ok(issues.map(validationText).some((t) => t.includes('Restschuld')));
 });
 
 test('Variante B mit Plan: Verkauf aus dem ETF inklusive Steuer', () => {
