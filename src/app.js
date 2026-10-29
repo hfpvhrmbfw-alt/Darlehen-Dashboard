@@ -1,4 +1,4 @@
-// Oberfläche, Zustand und Diagramme des Darlehen-Trackers. Einzige Stelle, die die Uhr liest.
+// Oberfläche, Zustand und Diagramme von Wolpertinger (Darlehen-Rechner). Einzige Stelle, die die Uhr liest.
 import {
   TARGET,
   compare, milestones, validate, pick, toModel,
@@ -29,7 +29,7 @@ const state = {
   input: sanitize(saved.input),
   view: { net: !!(saved.view && saved.view.net), real: !!(saved.view && saved.view.real) },
   tab: Number(saved.tab) >= 1 && Number(saved.tab) <= 8 ? Number(saved.tab) : 1,
-  theme: ['auto', 'light', 'dark'].includes(saved.theme) ? saved.theme : 'auto',
+  theme: ['auto', 'light', 'dark'].includes(saved.theme) ? saved.theme : 'dark',
   settings: {
     proxy: saved.settings && typeof saved.settings.proxy === 'string' ? saved.settings.proxy : '',
     allowPublic: saved.settings ? saved.settings.allowPublic !== false : true,
@@ -62,14 +62,11 @@ function applyTheme() {
   const btn = $('#theme-toggle');
   btn.textContent = `Farbe: ${THEME_TEXT[state.theme]}`;
   btn.setAttribute('aria-label', `Farbschema: ${THEME_TEXT[state.theme]}. Klicken zum Wechseln.`);
-  const metas = $$('meta[name="theme-color"]');
-  metas.forEach((m) => {
-    const sys = m.media.includes('dark') ? '#12151E' : '#DADDE5';
-    m.content = state.theme === 'auto' ? sys : state.theme === 'dark' ? '#12151E' : '#DADDE5';
-  });
+  const dark = state.theme === 'dark' || (state.theme === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
+  $('meta[name="theme-color"]').content = dark ? '#171717' : '#F4F4F2';
 }
 $('#theme-toggle').addEventListener('click', () => {
-  state.theme = state.theme === 'auto' ? 'light' : state.theme === 'light' ? 'dark' : 'auto';
+  state.theme = state.theme === 'dark' ? 'light' : state.theme === 'light' ? 'auto' : 'dark';
   applyTheme(); persist(); renderCharts();
 });
 
@@ -85,6 +82,10 @@ function selectTab(n, focus = false) {
     $('#' + t.getAttribute('aria-controls')).hidden = !on;
     if (on && focus) t.focus();
   });
+  const title = $('.t', tabs[n - 1]).textContent;
+  $('#page-title').textContent = title;
+  $('#crumb-current').textContent = title;
+  $$('[data-goto]').forEach((b) => { if (Number(b.dataset.goto) === n) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); });
   persist();
   renderCharts();
 }
@@ -92,13 +93,27 @@ tabs.forEach((t, i) => {
   t.addEventListener('click', () => selectTab(i + 1));
   t.addEventListener('keydown', (e) => {
     let n = null;
-    if (e.key === 'ArrowRight') n = (i + 1) % tabs.length;
-    else if (e.key === 'ArrowLeft') n = (i - 1 + tabs.length) % tabs.length;
+    if (e.key === 'ArrowDown' || e.key === 'ArrowRight') n = (i + 1) % tabs.length;
+    else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') n = (i - 1 + tabs.length) % tabs.length;
     else if (e.key === 'Home') n = 0;
     else if (e.key === 'End') n = tabs.length - 1;
     if (n !== null) { e.preventDefault(); selectTab(n + 1, true); }
   });
 });
+
+// ---------- Navigation am Handy: Sidebar als Schublade, untere Leiste ----------
+
+function setDrawer(open) {
+  $('#app').classList.toggle('drawer-open', open);
+  ['#btn-menu', '#btn-more'].forEach((sel) => $(sel).setAttribute('aria-expanded', String(open)));
+  if (open) $('[role="tab"][aria-selected="true"]').focus();
+}
+$('#btn-menu').addEventListener('click', () => setDrawer(true));
+$('#btn-more').addEventListener('click', () => setDrawer(!$('#app').classList.contains('drawer-open')));
+$('#backdrop').addEventListener('click', () => setDrawer(false));
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && $('#app').classList.contains('drawer-open')) { setDrawer(false); $('#btn-menu').focus(); } });
+tabs.forEach((t) => t.addEventListener('click', () => setDrawer(false)));
+$$('[data-goto]').forEach((b) => b.addEventListener('click', () => { setDrawer(false); selectTab(Number(b.dataset.goto)); window.scrollTo(0, 0); }));
 
 // ---------- Ansicht brutto/netto, nominal/real ----------
 
@@ -258,14 +273,14 @@ function frame(container, minH = 240, top = 20) {
 function legend(el, items) {
   el.innerHTML = items.map(({ cls, text }) => {
     const style = {
-      'l-acc': 'stroke:var(--accent);stroke-width:3',
-      'l-ink': 'stroke:var(--ink);stroke-width:2;stroke-dasharray:6 4',
-      'l-acc2': 'stroke:var(--ink);stroke-width:1.5;stroke-dasharray:2 3',
-      mark: 'stroke:var(--ink);stroke-width:2',
-      'mark dash': 'stroke:var(--ink);stroke-width:2;stroke-dasharray:4 3',
+      'l-acc': 'stroke:var(--ink);stroke-width:2',
+      'l-ink': 'stroke:var(--faint);stroke-width:2;stroke-dasharray:6 4',
+      'l-acc2': 'stroke:var(--muted);stroke-width:1.5;stroke-dasharray:2 3',
+      mark: 'stroke:var(--muted);stroke-width:1.5',
+      'mark dash': 'stroke:var(--muted);stroke-width:1.5;stroke-dasharray:4 3',
     }[cls];
     const shape = cls === 'bar'
-      ? '<rect x="0" y="2" width="28" height="10" style="fill:var(--accent)"/>'
+      ? '<rect x="0" y="2" width="28" height="10" rx="2" style="fill:var(--ink)"/>'
       : `<line x1="0" y1="7" x2="28" y2="7" style="${style}"/>`;
     return `<li><svg width="28" height="14" aria-hidden="true">${shape}</svg><span>${esc(text)}</span></li>`;
   }).join('');
@@ -301,6 +316,14 @@ function drawOverview() {
   svg.append(svgEl('line', { class: 'target', x1: pad.l, x2: w - pad.r, y1: Y(TARGET), y2: Y(TARGET) }));
   svg.append(svgEl('text', { x: pad.l + 6, y: Y(TARGET) - 6 }, '100.000 €'));
   const path = (p) => p.map((q, i) => `${i ? 'L' : 'M'}${X(q[0]).toFixed(1)},${Y(q[1]).toFixed(1)}`).join('');
+  // Fläche mit Verlauf unter der Linie „mit Darlehen“ (wie im Grunddesign); einzige Verlaufsfläche der App
+  const grad = svgEl('linearGradient', { id: 'ov-fill', x1: 0, y1: 0, x2: 0, y2: 1 });
+  grad.append(svgEl('stop', { offset: '0', style: 'stop-color:var(--area);stop-opacity:.22' }), svgEl('stop', { offset: '1', style: 'stop-color:var(--area);stop-opacity:0' }));
+  const defs = svgEl('defs');
+  defs.append(grad);
+  svg.append(defs);
+  const base = Y(Math.max(0, y0));
+  if (b.length > 1) svg.append(svgEl('path', { class: 'area', fill: 'url(#ov-fill)', d: `${path(b)}L${X(b[b.length - 1][0]).toFixed(1)},${base.toFixed(1)}L${X(b[0][0]).toFixed(1)},${base.toFixed(1)}Z` }));
   svg.append(svgEl('path', { class: 'l-ink', d: path(a) }));
   svg.append(svgEl('path', { class: 'l-acc', d: path(b) }));
   const g = last.model.graceMonths / 12;

@@ -1,6 +1,8 @@
-# Darlehen-Tracker (Darlehen-Dashboard)
+# Wolpertinger (Darlehen-Dashboard)
 
-Gedankenspiel: Ein zinsloses (oder zinsarmes) Familiendarlehen der Eltern wird komplett in einen Welt-ETF (All-World) investiert. Das Dashboard zeigt, was das für das Vermögen bedeutet, wie lange es bis 100.000 € dauert und wie hoch das Risiko ist.
+Wolpertinger wird ein persönlicher Vermögens-Tracker: Konten, Positionen, Kurse und Verlauf an einem Ort, so zusammengesetzt wie das bayerische Fabelwesen. Der erste Teil ist der **Darlehen-Rechner**, der aus dem früheren Darlehen-Tracker hervorgegangen ist.
+
+Darlehen-Rechner, Gedankenspiel: Ein zinsloses (oder zinsarmes) Familiendarlehen der Eltern wird komplett in einen Welt-ETF (All-World) investiert. Das Dashboard zeigt, was das für das Vermögen bedeutet, wie lange es bis 100.000 € dauert und wie hoch das Risiko ist.
 
 > **HINWEIS** Gedankenrechnung, keine Anlage-, Rechts- oder Steuerberatung. Alle Renditen sind Annahmen und keine Prognose.
 
@@ -11,7 +13,8 @@ Installierbare PWA, rein statisch: kein Build-Schritt, keine Abhängigkeiten zur
 Die App ist in Schichten getrennt (Modell, Logik, Speicher, Texte, Oberfläche), damit Modell, Rechenkern und Tests später ohne Neudenken nach Swift übertragen werden können. Abhängigkeiten zeigen nur nach unten: Oberfläche → Logik → Modell, Oberfläche → Speicher, Oberfläche → Texte.
 
 ```
-index.html             Markup und CSS (Stil Tinte aus dem Castra-Designsystem, Hell/Dunkel)
+index.html             Markup: Sidebar, Kopfzeile, Seiten, untere Leiste am Handy
+styles.css             Stil nach dem Grunddesign „Metric“: dunkel als Standard, helle Variante, monochrom, Farbe nur für Status
 src/model.js           Datenmodell: Standardwerte, feste Auswahllisten, sanitize, Export/Import mit Versionsprüfung
 src/loan.js            Rechenkern des Darlehen-Rechners: reine Funktionen ohne DOM, Speicher und Uhr; liefert Daten und Codes, keine Texte
 src/format.js          Zahlenformat für die Anzeige (deutsch)
@@ -125,4 +128,4 @@ Alle Pfade sind relativ (`./`), `start_url` und `scope` sind `./`, deshalb funkt
 
 ## Lizenzen
 
-Schriften: Space Grotesk (Florian Karsten), Inter (The Inter Project Authors) und JetBrains Mono (JetBrains), jeweils SIL Open Font License 1.1, bezogen über Google Fonts und selbst gehostet. Lizenztexte in `fonts/`.
+Schrift: Inter (The Inter Project Authors), SIL Open Font License 1.1, bezogen über Google Fonts und selbst gehostet. Lizenztext in `fonts/`.
