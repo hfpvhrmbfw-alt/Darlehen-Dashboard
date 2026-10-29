@@ -223,6 +223,42 @@ details > div p { margin:0 0 var(--s2); }
 .status { font-size:13px; color:var(--muted); min-height:1.5em; }
 
 /* ---------- Handy: Sidebar als Schublade, untere Leiste ---------- */
+/* Vermögen */
+.dash-grid { display:grid; grid-template-columns:minmax(0,2fr) minmax(0,1fr); gap:var(--s4); align-items:stretch; }
+.dash-grid figure { margin-bottom:var(--s4); }
+.chart .bar.prev { fill:var(--sunken); stroke:var(--muted); stroke-width:1; }
+.delta { display:inline-flex; gap:4px; align-items:center; font:500 12px/1 var(--sans); font-variant-numeric:tabular-nums; padding:4px 7px; border-radius:5px; background:var(--sunken); color:var(--muted); }
+.delta span { font-size:9px; }
+.delta.up { background:var(--ok-tint); color:var(--ok); }
+.delta.down { background:var(--err-tint); color:var(--err); }
+.tag.src-kurs { background:var(--info-tint); color:var(--info); }
+.tag.src-fehlt { background:var(--warn-tint); color:var(--warn); }
+.note .btn { margin-left:auto; flex:none; }
+.deposit-grid { display:grid; gap:0 var(--s4); grid-template-columns:repeat(auto-fit,minmax(min(100%,180px),1fr)); }
+.deposit-grid .field input[type="date"] { font:15px var(--sans); padding:9px 11px; background:var(--bg); color:var(--ink); border:1px solid var(--line); border-radius:var(--r); width:100%; min-height:40px; }
+input.input, .cell { font:14px var(--sans); padding:7px 9px; background:var(--bg); color:var(--ink); border:1px solid var(--line); border-radius:var(--r); min-height:36px; min-width:0; }
+input.input { font-size:15px; min-height:40px; flex:1 1 220px; max-width:360px; }
+input.input:focus-visible, .cell:focus-visible { outline:2px solid var(--ink); outline-offset:1px; }
+.cell { width:100%; }
+.cell.n { text-align:right; font-variant-numeric:tabular-nums; min-width:96px; }
+.cell.sym { min-width:110px; text-transform:uppercase; }
+table.data.edit td { padding:8px 8px; vertical-align:middle; }
+table.data.edit td:first-child { padding-left:0; min-width:150px; }
+table.data.edit td.num[data-out] { min-width:110px; font-variant-numeric:tabular-nums; }
+.card .table-scroll { border:0; background:transparent; padding:0; margin:var(--s2) 0; }
+.acct { margin-bottom:var(--s4); }
+.acct-head { display:flex; flex-wrap:wrap; gap:var(--s3); align-items:center; }
+.acct-name { flex:1 1 200px; max-width:320px; font-weight:600; font-size:15px; }
+.acct-sum { font-weight:600; font-variant-numeric:tabular-nums; margin-left:auto; }
+#table-debts td:first-child { min-width:180px; }
+#pf-kpis { grid-template-columns:repeat(3,minmax(0,1fr)); }
+#chart-pf-bars { min-height:0; }
+#pf-kpis .kpi:nth-child(3n+1) { border-left:0; }
+#pf-kpis .kpi:nth-child(n+4) { border-top:1px solid var(--line); }
+.delta { white-space:nowrap; }
+#table-pf tr.sum th, #table-deposits tr.sum th { border-top:1px solid var(--muted); }
+@media (max-width:1100px) { .dash-grid { grid-template-columns:minmax(0,1fr); gap:0; } }
+
 @media (max-width:860px) {
   .app { grid-template-columns:minmax(0,1fr); }
   .side { position:fixed; inset:0 auto 0 0; width:min(84vw,300px); transform:translateX(-102%); transition:transform .2s ease; }
@@ -240,6 +276,20 @@ details > div p { margin:0 0 var(--s2); }
   .kpis { grid-template-columns:repeat(2,minmax(0,1fr)); }
   .kpi:nth-child(2) { border-top:0; border-left:1px solid var(--line); }
   .kpi:nth-child(2n) { border-left:1px solid var(--line); }
+  #pf-kpis { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  #pf-kpis .kpi { border-left:0; border-top:1px solid var(--line); }
+  #pf-kpis .kpi:nth-child(2n) { border-left:1px solid var(--line); }
+  #pf-kpis .kpi:nth-child(-n+2) { border-top:0; }
+  table.data.edit, table.data.edit tbody { display:block; }
+  table.data.edit thead { display:none; }
+  table.data.edit tr { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:10px; padding:12px 0; border-bottom:1px solid var(--line); }
+  table.data.edit tbody tr:hover { background:transparent; }
+  table.data.edit td { display:block; padding:0 !important; border:0; min-width:0 !important; text-align:left; }
+  table.data.edit td[data-label]::before { content:attr(data-label); display:block; font-size:12px; color:var(--muted); margin-bottom:4px; }
+  table.data.edit td:first-child { grid-column:1 / -1; }
+  table.data.edit td.act { grid-column:1 / -1; }
+  table.data.edit td.act:empty { display:none; }
+  .cell.n, .cell.sym { min-width:0; text-align:left; }
   .field .pair { grid-template-columns:1fr 104px; }
   table.data th, table.data td { padding:10px 12px; }
   .card { padding:14px 16px; }

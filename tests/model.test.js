@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { APP_DEFAULTS, SCHEMA_VERSION, sanitize, buildExport, parseImport, upgradeRaw } from '../src/model.js';
+import { APP_DEFAULTS, SCHEMA_VERSION, sanitize, buildExport, parseImport, upgradeRaw, emptyPortfolio } from '../src/model.js';
 
 test('sanitize: Ungültiges fällt auf Standardwerte zurück, Kommazahlen werden gelesen', () => {
   assert.deepEqual(sanitize(null), APP_DEFAULTS);
@@ -17,9 +17,11 @@ test('sanitize: Ungültiges fällt auf Standardwerte zurück, Kommazahlen werden
 
 test('Export und Import ergeben wieder dieselben Eingaben', () => {
   const input = sanitize({ loan: 50000, variant: 'B' });
-  const data = buildExport(input, '2026-10-29T12:00:00.000Z');
-  assert.deepEqual(data, { app: 'darlehen-tracker', version: SCHEMA_VERSION, exportiert: '2026-10-29T12:00:00.000Z', eingaben: input });
-  assert.deepEqual(parseImport(JSON.parse(JSON.stringify(data))), { ok: true, input });
+  const pf = emptyPortfolio();
+  const data = buildExport(input, pf, '2026-10-29T12:00:00.000Z');
+  assert.deepEqual(data, { app: 'darlehen-tracker', version: SCHEMA_VERSION, exportiert: '2026-10-29T12:00:00.000Z', eingaben: input, vermoegen: pf });
+  assert.deepEqual(parseImport(JSON.parse(JSON.stringify(data))), { ok: true, input, portfolio: pf });
+  assert.equal(parseImport({ version: 1, eingaben: { loan: 1 } }).portfolio, null, 'Version 1 ohne Vermögen');
 });
 
 test('Import: ältere Formen werden angenommen, neuere und kaputte abgelehnt', () => {
@@ -36,8 +38,8 @@ test('upgradeRaw ist idempotent', () => {
   assert.deepEqual(upgradeRaw(once), once);
 });
 
-test('Modell und Rechenkern greifen nicht auf DOM, Speicher, Netz oder Uhr zu', () => {
-  for (const f of ['model.js', 'loan.js']) {
+test('Modell und Rechenlogik greifen nicht auf DOM, Speicher, Netz oder Uhr zu', () => {
+  for (const f of ['model.js', 'loan.js', 'portfolio.js']) {
     const src = readFileSync(new URL(`../src/${f}`, import.meta.url), 'utf8').replace(/\/\/.*$|\/\*[\s\S]*?\*\//gm, '');
     for (const word of ['document', 'window', 'localStorage', 'indexedDB', 'fetch(', 'Date.now', 'new Date']) {
       assert.ok(!src.includes(word), `${f} enthält ${word}`);

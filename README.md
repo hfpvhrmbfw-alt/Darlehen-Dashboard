@@ -1,6 +1,9 @@
 # Wolpertinger (Darlehen-Dashboard)
 
-Wolpertinger wird ein persönlicher Vermögens-Tracker: Konten, Positionen, Kurse und Verlauf an einem Ort, so zusammengesetzt wie das bayerische Fabelwesen. Der erste Teil ist der **Darlehen-Rechner**, der aus dem früheren Darlehen-Tracker hervorgegangen ist.
+Wolpertinger wird ein persönlicher Vermögens-Tracker: Konten, Positionen, Kurse und Verlauf an einem Ort, so zusammengesetzt wie das bayerische Fabelwesen. Zwei Bereiche:
+
+- **Vermögen:** Konten und Positionen (ETF, Aktie, Krypto, Anleihe, Konto/Tagesgeld, Sonstiges), Schulden und Einzahlungen. Mit Symbol und Anteilen holt die App den Kurs bei Yahoo Finance (beim Öffnen, wenn älter als eine Stunde, sonst per Knopf; Fremdwährungen über den Wechselkurs, z. B. `USDEUR=X`). Jeden Tag, an dem die App geöffnet wird, speichert sie einen Tagesstand. Die Übersicht zeigt Nettovermögen, Veränderung im Zeitraum, Gewinn ohne Einzahlungen (Rendite nach Dietz), Verlauf und Aufteilung. Das Darlehen aus dem Rechner zählt auf Wunsch als Schuld.
+- **Darlehen-Rechner:** aus dem früheren Darlehen-Tracker hervorgegangen.
 
 Darlehen-Rechner, Gedankenspiel: Ein zinsloses (oder zinsarmes) Familiendarlehen der Eltern wird komplett in einen Welt-ETF (All-World) investiert. Das Dashboard zeigt, was das für das Vermögen bedeutet, wie lange es bis 100.000 € dauert und wie hoch das Risiko ist.
 
@@ -21,7 +24,10 @@ src/format.js          Zahlenformat für die Anzeige (deutsch)
 src/texts.js           Beschriftungen und Meldungen zu den Codes aus Modell und Logik
 src/storage.js         Speicher-Schnittstelle (localStorage mit try/catch)
 src/quotes.js          Kursabruf bei Yahoo Finance (nur auf Knopfdruck)
-src/app.js             Oberfläche, Zustand, Diagramme (Inline-SVG); einzige Stelle, die „heute“ aus der Uhr liest
+src/portfolio.js       Rechenlogik des Vermögens: Werte, Summen, Tagesstände, Zeiträume, Rendite; rein, „heute“ als Parameter
+src/ui-kit.js          Bausteine der Oberfläche: DOM-Helfer, Achsen, Inline-SVG, Legende
+src/portfolio-ui.js    Oberfläche des Vermögens: Übersicht, Positionen, Einzahlungen, Kursabruf, Tagesstände
+src/app.js             Navigation, Darlehen-Rechner, Sicherung (Export/Import); die Oberfläche liest „heute“ aus der Uhr
 src/worker.js          Web Worker für die Monte-Carlo-Simulation
 proxy/                 Vorlage für einen eigenen Proxy (Cloudflare Worker), nicht Teil der App
 sw.js                  Service Worker (vorab zwischenspeichern, Cache zuerst)

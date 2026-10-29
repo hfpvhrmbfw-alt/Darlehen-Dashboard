@@ -1,4 +1,5 @@
-// Oberfläche, Zustand und Diagramme von Wolpertinger (Darlehen-Rechner). Einzige Stelle, die die Uhr liest.
+// Oberfläche, Zustand und Diagramme von Wolpertinger: Navigation, Darlehen-Rechner, Sicherung.
+// Die Vermögensseiten stecken in portfolio-ui.js. Nur die Oberfläche liest die Uhr.
 import {
   TARGET,
   compare, milestones, validate, pick, toModel,
@@ -10,11 +11,11 @@ import { validationText, IMPORT_ERRORS } from './texts.js';
 import { STORE_KEY, load as storeLoad, save as storeSave } from './storage.js';
 import { fetchQuote, searchSymbols, PUBLIC_PROXY_NAME } from './quotes.js';
 
-const RATES = [0, 1, 2, 3, 4, 5, 6, 7, 8];
-const SVG_NS = 'http://www.w3.org/2000/svg';
+import { $, $$, esc, short, svgEl, niceTicks, frame, legend } from './ui-kit.js';
+import { initPortfolio } from './portfolio-ui.js';
 
-const $ = (sel, root = document) => root.querySelector(sel);
-const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+const RATES = [0, 1, 2, 3, 4, 5, 6, 7, 8];
+let pfApi = null; // Vermögensseiten, siehe Start
 
 /** Eingaben für den Rechenkern, mit heutigem Monat als Bezugspunkt. */
 function inp(extra = {}) { return { ...state.input, refMonth: currentMonth(new Date()), ...extra }; }
@@ -28,7 +29,8 @@ const saved = storeLoad() || {};
 const state = {
   input: sanitize(saved.input),
   view: { net: !!(saved.view && saved.view.net), real: !!(saved.view && saved.view.real) },
-  tab: Number(saved.tab) >= 1 && Number(saved.tab) <= 8 ? Number(saved.tab) : 1,
+  // `page` statt `tab`: ältere Stände (nur Rechner) starten einmalig in der Vermögensübersicht.
+  tab: Number.isInteger(saved.page) && saved.page >= 1 && saved.page <= 12 ? saved.page : 9,
   theme: ['auto', 'light', 'dark'].includes(saved.theme) ? saved.theme : 'dark',
   settings: {
     proxy: saved.settings && typeof saved.settings.proxy === 'string' ? saved.settings.proxy : '',
@@ -37,19 +39,12 @@ const state = {
   quote: saved.quote && Number.isFinite(saved.quote.price) ? saved.quote : null,
 };
 function persist() {
-  storeSave({ input: state.input, view: state.view, tab: state.tab, theme: state.theme, settings: state.settings, quote: state.quote });
+  storeSave({ input: state.input, view: state.view, page: state.tab, theme: state.theme, settings: state.settings, quote: state.quote });
 }
 
 // ---------- Format-Helfer ----------
 
-function short(v) {
-  const a = Math.abs(v), sign = v < 0 ? '−' : '';
-  if (a >= 1e6) return `${sign}${fmtNum(a / 1e6, a >= 1e7 ? 0 : 1)} Mio.`;
-  if (a >= 1e3) return `${sign}${fmtNum(a / 1e3, 0)} Tsd.`;
-  return `${sign}${fmtNum(a, 0)}`;
-}
 function signedEur(v) { return `${v > 0 ? '+' : ''}${fmtEur(v)}`; }
-function esc(s) { return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 function viewLabel(v = state.view) { return `${v.net ? 'netto' : 'brutto'}, ${v.real ? 'real (Kaufkraft heute)' : 'nominal'}`; }
 
 // ---------- Theme ----------
@@ -73,31 +68,36 @@ $('#theme-toggle').addEventListener('click', () => {
 // ---------- Tabs (ARIA, Pfeiltasten) ----------
 
 const tabs = $$('[role="tab"]');
+const AREA_PATH = { pf: 'Vermögen', calc: 'Darlehen-Rechner', data: 'Daten' };
 function selectTab(n, focus = false) {
-  state.tab = n;
-  tabs.forEach((t, i) => {
-    const on = i + 1 === n;
+  const cur = $('#tab-' + n) || $('#tab-9');
+  state.tab = Number(cur.id.slice(4));
+  for (const t of tabs) {
+    const on = t === cur;
     t.setAttribute('aria-selected', String(on));
     t.tabIndex = on ? 0 : -1;
     $('#' + t.getAttribute('aria-controls')).hidden = !on;
-    if (on && focus) t.focus();
-  });
-  const title = $('.t', tabs[n - 1]).textContent;
+  }
+  if (focus) cur.focus();
+  const area = cur.dataset.area;
+  $$('[data-show]').forEach((el) => { el.hidden = el.dataset.show !== area; });
+  const title = $('.t', cur).textContent;
   $('#page-title').textContent = title;
+  $('#crumb-path').textContent = AREA_PATH[area];
   $('#crumb-current').textContent = title;
-  $$('[data-goto]').forEach((b) => { if (Number(b.dataset.goto) === n) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); });
+  $$('[data-goto]').forEach((b) => { if (Number(b.dataset.goto) === state.tab) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); });
   persist();
   renderCharts();
 }
 tabs.forEach((t, i) => {
-  t.addEventListener('click', () => selectTab(i + 1));
+  t.addEventListener('click', () => selectTab(Number(t.id.slice(4))));
   t.addEventListener('keydown', (e) => {
-    let n = null;
-    if (e.key === 'ArrowDown' || e.key === 'ArrowRight') n = (i + 1) % tabs.length;
-    else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') n = (i - 1 + tabs.length) % tabs.length;
-    else if (e.key === 'Home') n = 0;
-    else if (e.key === 'End') n = tabs.length - 1;
-    if (n !== null) { e.preventDefault(); selectTab(n + 1, true); }
+    let k = null;
+    if (e.key === 'ArrowDown' || e.key === 'ArrowRight') k = (i + 1) % tabs.length;
+    else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') k = (i - 1 + tabs.length) % tabs.length;
+    else if (e.key === 'Home') k = 0;
+    else if (e.key === 'End') k = tabs.length - 1;
+    if (k !== null) { e.preventDefault(); selectTab(Number(tabs[k].id.slice(4)), true); }
   });
 });
 
@@ -113,7 +113,11 @@ $('#btn-more').addEventListener('click', () => setDrawer(!$('#app').classList.co
 $('#backdrop').addEventListener('click', () => setDrawer(false));
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && $('#app').classList.contains('drawer-open')) { setDrawer(false); $('#btn-menu').focus(); } });
 tabs.forEach((t) => t.addEventListener('click', () => setDrawer(false)));
-$$('[data-goto]').forEach((b) => b.addEventListener('click', () => { setDrawer(false); selectTab(Number(b.dataset.goto)); window.scrollTo(0, 0); }));
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-goto]');
+  if (!b) return;
+  setDrawer(false); selectTab(Number(b.dataset.goto)); window.scrollTo(0, 0);
+});
 
 // ---------- Ansicht brutto/netto, nominal/real ----------
 
@@ -201,17 +205,25 @@ $('#btn-reset').addEventListener('click', () => {
   state.input = { ...DEFAULTS };
   persist(); syncForm(); renderPlanEditor(); update(); setIo('Alle Eingaben auf die Ausgangswerte zurückgesetzt.');
 });
-$('#btn-export').addEventListener('click', () => {
-  const data = buildExport(state.input, new Date().toISOString());
+/** Status neben dem gedrückten Knopf: auf der Sicherungsseite dort, im Rechner unter den Eingaben. */
+function ioStatus(text) {
+  if (state.tab === 12) $('#backup-status').textContent = text;
+  else setIo(text);
+}
+$$('[data-action="export"]').forEach((b) => b.addEventListener('click', () => {
+  const now = new Date();
+  const data = buildExport(state.input, pfApi.get(), now.toISOString());
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url; a.download = `darlehen-tracker-${new Date().toISOString().slice(0, 10)}.json`;
+  const day = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  a.href = url; a.download = `wolpertinger-${day}.json`;
   document.body.append(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
-  setIo('Eingaben als JSON exportiert.');
-});
-$('#btn-import').addEventListener('click', () => $('#file-import').click());
+  pfApi.markBackup();
+  ioStatus('Sicherung heruntergeladen: Vermögen und Eingaben des Rechners.');
+}));
+$$('[data-action="import"]').forEach((b) => b.addEventListener('click', () => $('#file-import').click()));
 $('#file-import').addEventListener('change', async (e) => {
   const file = e.target.files && e.target.files[0];
   e.target.value = '';
@@ -219,11 +231,13 @@ $('#file-import').addEventListener('change', async (e) => {
   try {
     const res = parseImport(JSON.parse(await file.text()));
     if (!res.ok) throw new Error(IMPORT_ERRORS[res.error]);
+    if (res.portfolio && pfApi.hasData() && !confirm('Die Sicherung ersetzt alle Konten, Positionen und Einzahlungen in diesem Browser. Fortfahren?')) return;
     state.input = res.input;
     persist(); syncForm(); renderPlanEditor(); update();
-    setIo(`JSON importiert: ${file.name}.`);
+    if (res.portfolio) pfApi.replace(res.portfolio);
+    ioStatus(res.portfolio ? `Sicherung geladen: ${file.name}.` : `Eingaben des Rechners geladen: ${file.name} (ohne Vermögen, ältere Datei).`);
   } catch (err) {
-    setIo(`Import fehlgeschlagen: Die Datei ist kein gültiger Export (${err.message}).`);
+    ioStatus(`Laden fehlgeschlagen: Die Datei ist keine gültige Sicherung (${err.message}).`);
   }
 });
 
@@ -240,51 +254,7 @@ function renderWarnings() {
     : '';
 }
 
-// ---------- Diagramme (Inline-SVG) ----------
-
-function svgEl(name, attrs = {}, text) {
-  const el = document.createElementNS(SVG_NS, name);
-  for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
-  if (text !== undefined) el.textContent = text;
-  return el;
-}
-function niceTicks(min, max, count = 5) {
-  if (!(max > min)) { max = min + 1; }
-  const span = max - min;
-  const step0 = span / count;
-  const mag = Math.pow(10, Math.floor(Math.log10(step0)));
-  const norm = step0 / mag;
-  const step = (norm >= 5 ? 10 : norm >= 2 ? 5 : norm >= 1 ? 2 : 1) * mag;
-  const start = Math.floor(min / step) * step;
-  const ticks = [];
-  for (let v = start; ; v += step) {
-    ticks.push(Math.round(v / step) * step);
-    if (v >= max - step * 1e-9) break;
-  }
-  return ticks;
-}
-function frame(container, minH = 240, top = 20) {
-  const w = Math.max(280, Math.floor(container.clientWidth || 600));
-  const h = Math.round(Math.min(380, Math.max(minH, w * 0.48)));
-  const pad = { l: w < 480 ? 66 : 76, r: w < 480 ? 14 : 24, t: top, b: 36 };
-  const svg = svgEl('svg', { viewBox: `0 0 ${w} ${h}`, width: w, height: h, 'aria-hidden': 'true', focusable: 'false' });
-  return { svg, w, h, pad, iw: w - pad.l - pad.r, ih: h - pad.t - pad.b };
-}
-function legend(el, items) {
-  el.innerHTML = items.map(({ cls, text }) => {
-    const style = {
-      'l-acc': 'stroke:var(--ink);stroke-width:2',
-      'l-ink': 'stroke:var(--faint);stroke-width:2;stroke-dasharray:6 4',
-      'l-acc2': 'stroke:var(--muted);stroke-width:1.5;stroke-dasharray:2 3',
-      mark: 'stroke:var(--muted);stroke-width:1.5',
-      'mark dash': 'stroke:var(--muted);stroke-width:1.5;stroke-dasharray:4 3',
-    }[cls];
-    const shape = cls === 'bar'
-      ? '<rect x="0" y="2" width="28" height="10" rx="2" style="fill:var(--ink)"/>'
-      : `<line x1="0" y1="7" x2="28" y2="7" style="${style}"/>`;
-    return `<li><svg width="28" height="14" aria-hidden="true">${shape}</svg><span>${esc(text)}</span></li>`;
-  }).join('');
-}
+// ---------- Diagramme (Inline-SVG, Bausteine in ui-kit.js) ----------
 
 let last = null; // letzte deterministische Rechnung
 let mc = null;   // letztes Simulationsergebnis
@@ -430,10 +400,11 @@ function drawRates() {
 
 function renderCharts() {
   drawOverview(); drawHistogram(); drawRates();
+  if (pfApi) pfApi.drawCharts();
 }
 let resizeTimer;
 const ro = new ResizeObserver(() => { clearTimeout(resizeTimer); resizeTimer = setTimeout(renderCharts, 80); });
-['#chart-overview', '#chart-hist', '#chart-rates'].forEach((s) => ro.observe($(s)));
+['#chart-overview', '#chart-hist', '#chart-rates', '#chart-pf-line', '#chart-pf-bars'].forEach((s) => ro.observe($(s)));
 
 // ---------- № 02 Überblick ----------
 
@@ -787,6 +758,7 @@ function update() {
   renderWarnings();
   renderDeterministic();
   scheduleMc();
+  if (pfApi) pfApi.inputChanged();
 }
 
 // ---------- Service Worker und UPDATE-Note ----------
@@ -820,6 +792,7 @@ function setupServiceWorker() {
 
 // ---------- Start ----------
 
+pfApi = initPortfolio({ getInput: () => state.input, quoteSettings });
 applyTheme();
 syncView();
 syncForm();
@@ -827,6 +800,7 @@ selectTab(state.tab);
 renderPlanEditor();
 showQuoteStatus();
 update();
+pfApi.start();
 setupServiceWorker();
 window.addEventListener('storage', (e) => {
   if (e.key !== STORE_KEY) return;

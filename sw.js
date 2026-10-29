@@ -1,6 +1,6 @@
 // Service Worker: alle App-Dateien beim Installieren vorab speichern, danach Cache zuerst.
 // Bei jeder Änderung an einer App-Datei VERSION erhöhen, damit die UPDATE-Note erscheint.
-const VERSION = '2.0.0';
+const VERSION = '2.1.0';
 const PREFIX = 'darlehen-tracker-';
 const CACHE = `${PREFIX}${VERSION}`;
 
@@ -16,6 +16,9 @@ const ASSETS = [
   './src/storage.js',
   './src/quotes.js',
   './src/worker.js',
+  './src/ui-kit.js',
+  './src/portfolio.js',
+  './src/portfolio-ui.js',
   './manifest.webmanifest',
   './icons/favicon.svg',
   './icons/icon-192.png',
