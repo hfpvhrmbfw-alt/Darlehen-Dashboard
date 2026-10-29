@@ -1,0 +1,321 @@
+{
+  "note": "Eingaben ergänzen DEFAULTS aus src/model.js. Kommazahlen auf 6 Stellen gerundet, Vergleich mit Toleranz 1e-6. Auch für Swift-Tests gedacht.",
+  "cases": [
+    {
+      "id": "standard-20k",
+      "input": {
+        "refMonth": "2026-10"
+      },
+      "expected": {
+        "finalWithout": 586129.760168,
+        "finalWith": 652505.385272,
+        "diff": 66375.625105,
+        "yearsWithout": 9.916667,
+        "yearsWith": 8.583333,
+        "payment": 166.666667,
+        "plan": {
+          "count": 120,
+          "first": "2036-11",
+          "last": "2046-10",
+          "total": 20000,
+          "debtEnd": 0,
+          "taxTotal": 0
+        },
+        "milestones": [
+          15.666667,
+          26.75,
+          35.333333
+        ],
+        "issues": []
+      }
+    },
+    {
+      "id": "standard-50k",
+      "input": {
+        "refMonth": "2026-10",
+        "loan": 50000
+      },
+      "expected": {
+        "finalWithout": 586129.760168,
+        "finalWith": 752068.822929,
+        "diff": 165939.062762,
+        "yearsWithout": 9.916667,
+        "yearsWith": 7.083333,
+        "payment": 416.666667,
+        "plan": {
+          "count": 120,
+          "first": "2036-11",
+          "last": "2046-10",
+          "total": 50000,
+          "debtEnd": 0,
+          "taxTotal": 0
+        },
+        "milestones": [
+          13.583333,
+          24.75,
+          33.666667
+        ],
+        "issues": [
+          "payment-over-savings"
+        ]
+      }
+    },
+    {
+      "id": "krypto-0",
+      "input": {
+        "refMonth": "2026-10",
+        "cryptoGrowth": 0
+      },
+      "expected": {
+        "finalWithout": 276880.997512,
+        "finalWith": 343256.622617,
+        "diff": 66375.625105,
+        "yearsWithout": 14.666667,
+        "yearsWith": 11.75,
+        "payment": 166.666667,
+        "plan": {
+          "count": 120,
+          "first": "2036-11",
+          "last": "2046-10",
+          "total": 20000,
+          "debtEnd": 0,
+          "taxTotal": 0
+        },
+        "milestones": [
+          21.5,
+          36.166667,
+          47.666667
+        ],
+        "issues": []
+      }
+    },
+    {
+      "id": "variante-b",
+      "input": {
+        "refMonth": "2026-10",
+        "variant": "B"
+      },
+      "expected": {
+        "finalWithout": 586129.760168,
+        "finalWith": 646835.384886,
+        "diff": 60705.624719,
+        "yearsWithout": 9.916667,
+        "yearsWith": 8.583333,
+        "payment": 166.666667,
+        "plan": {
+          "count": 120,
+          "first": "2036-11",
+          "last": "2046-10",
+          "total": 20000,
+          "debtEnd": 0,
+          "taxTotal": 2393.239111
+        },
+        "milestones": [
+          15.75,
+          26.833333,
+          35.416667
+        ],
+        "issues": []
+      }
+    },
+    {
+      "id": "zins-3",
+      "input": {
+        "refMonth": "2026-10",
+        "loanRate": 3
+      },
+      "expected": {
+        "finalWithout": 586129.760168,
+        "finalWith": 619324.401701,
+        "diff": 33194.641534,
+        "yearsWithout": 9.916667,
+        "yearsWith": 9.25,
+        "payment": 166.666667,
+        "plan": {
+          "count": 120,
+          "first": "2036-11",
+          "last": "2046-10",
+          "total": 20000,
+          "debtEnd": 0,
+          "taxTotal": 0
+        },
+        "milestones": [
+          16.5,
+          27.416667,
+          35.916667
+        ],
+        "issues": []
+      }
+    },
+    {
+      "id": "einfach-500-ab-2030",
+      "input": {
+        "refMonth": "2026-10",
+        "planMode": "simple",
+        "planAmount": 500,
+        "planStart": "2030-01"
+      },
+      "expected": {
+        "finalWithout": 586129.760168,
+        "finalWith": 614398.788586,
+        "diff": 28269.028419,
+        "yearsWithout": 9.916667,
+        "yearsWith": 9.083333,
+        "payment": 500,
+        "plan": {
+          "count": 40,
+          "first": "2030-01",
+          "last": "2033-04",
+          "total": 20000,
+          "debtEnd": 0,
+          "taxTotal": 0
+        },
+        "milestones": [
+          16.583333,
+          27.5,
+          36
+        ],
+        "issues": [
+          "payment-over-savings"
+        ]
+      }
+    },
+    {
+      "id": "individuell",
+      "input": {
+        "refMonth": "2026-10",
+        "planMode": "custom",
+        "planCustom": [
+          {
+            "m": "2025-01",
+            "a": 100
+          },
+          {
+            "m": "2027-01",
+            "a": 3000
+          },
+          {
+            "m": "2027-02",
+            "a": 4000
+          }
+        ]
+      },
+      "expected": {
+        "finalWithout": 586129.760168,
+        "finalWith": 648486.243341,
+        "diff": 62356.483173,
+        "yearsWithout": 9.916667,
+        "yearsWith": 9,
+        "payment": 3000,
+        "plan": {
+          "count": 2,
+          "first": "2027-01",
+          "last": "2027-02",
+          "total": 7000,
+          "debtEnd": 13000,
+          "taxTotal": 0
+        },
+        "milestones": [
+          16.166667,
+          26.916667,
+          35.333333
+        ],
+        "issues": [
+          "payment-over-savings",
+          "plan-custom-past",
+          "plan-debt-left"
+        ]
+      }
+    },
+    {
+      "id": "schon-investiert",
+      "input": {
+        "refMonth": "2026-10",
+        "loanEtfNow": 22000
+      },
+      "expected": {
+        "finalWithout": 586129.760168,
+        "finalWith": 663992.367618,
+        "diff": 77862.607451,
+        "yearsWithout": 9.916667,
+        "yearsWith": 8.25,
+        "payment": 166.666667,
+        "plan": {
+          "count": 120,
+          "first": "2036-11",
+          "last": "2046-10",
+          "total": 20000,
+          "debtEnd": 0,
+          "taxTotal": 0
+        },
+        "milestones": [
+          15.416667,
+          26.5,
+          35.166667
+        ],
+        "issues": []
+      }
+    },
+    {
+      "id": "tilgung-ueber-horizont",
+      "input": {
+        "refMonth": "2026-10",
+        "grace": 20,
+        "term": 20
+      },
+      "expected": {
+        "finalWithout": 586129.760168,
+        "finalWith": 677460.13009,
+        "diff": 91330.369923,
+        "yearsWithout": 9.916667,
+        "yearsWith": 8.583333,
+        "payment": 83.333333,
+        "plan": {
+          "count": 120,
+          "first": "2046-11",
+          "last": "2056-10",
+          "total": 10000,
+          "debtEnd": 10000,
+          "taxTotal": 0
+        },
+        "milestones": [
+          15.583333,
+          26.333333,
+          34.916667
+        ],
+        "issues": [
+          "plan-exceeds-horizon"
+        ]
+      }
+    },
+    {
+      "id": "ohne-darlehen",
+      "input": {
+        "refMonth": "2026-10",
+        "loan": 0
+      },
+      "expected": {
+        "finalWithout": 586129.760168,
+        "finalWith": 586129.760168,
+        "diff": 0,
+        "yearsWithout": 9.916667,
+        "yearsWith": 9.916667,
+        "payment": 0,
+        "plan": {
+          "count": 0,
+          "first": null,
+          "last": null,
+          "total": 0,
+          "debtEnd": 0,
+          "taxTotal": 0
+        },
+        "milestones": [
+          17.333333,
+          28.166667,
+          36.5
+        ],
+        "issues": []
+      }
+    }
+  ]
+}
