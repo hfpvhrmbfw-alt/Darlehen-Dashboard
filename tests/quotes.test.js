@@ -1,7 +1,7 @@
 // Tests für den Kursabruf (ohne Netz, mit nachgebildeten Antworten)
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseChart, parseSearch, routes, viaProxy, fetchVia, chartUrl } from '../quote.js';
+import { parseChart, parseSearch, routes, viaProxy, fetchVia, chartUrl } from '../src/quotes.js';
 
 const chart = { chart: { result: [{ meta: { currency: 'EUR', symbol: 'VWCE.DE', longName: 'Vanguard FTSE All-World UCITS ETF', regularMarketPrice: 132.5, regularMarketTime: 1791300000, fullExchangeName: 'XETRA' } }], error: null } };
 

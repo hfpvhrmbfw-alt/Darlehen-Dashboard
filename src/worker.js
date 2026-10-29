@@ -1,5 +1,5 @@
 // Web Worker für die Monte-Carlo-Simulation, damit die Oberfläche flüssig bleibt.
-import { monteCarlo } from './calc.js';
+import { monteCarlo } from './loan.js';
 
 self.onmessage = (ev) => {
   const { id, input, rates } = ev.data;

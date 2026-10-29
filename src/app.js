@@ -1,63 +1,30 @@
-// Oberfläche, Zustand und Diagramme des Darlehen-Trackers.
+// Oberfläche, Zustand und Diagramme des Darlehen-Trackers. Einzige Stelle, die die Uhr liest.
 import {
-  DEFAULTS as CALC_DEFAULTS, TARGET,
+  TARGET,
   compare, milestones, validate, pick, toModel,
   currentMonth, monthDiff, addMonths, repaymentPlan, buildCustomPlan,
-  fmtNum, fmtEur, fmtPct, fmtYears,
-} from './calc.js';
-import { fetchQuote, searchSymbols, PUBLIC_PROXY_NAME } from './quote.js';
+} from './loan.js';
+import { APP_DEFAULTS as DEFAULTS, sanitize, buildExport, parseImport } from './model.js';
+import { fmtNum, fmtEur, fmtPct, fmtYears } from './format.js';
+import { validationText, IMPORT_ERRORS } from './texts.js';
+import { STORE_KEY, load as storeLoad, save as storeSave } from './storage.js';
+import { fetchQuote, searchSymbols, PUBLIC_PROXY_NAME } from './quotes.js';
 
-// Eingaben der App: Rechenkern plus Kursabruf (Symbol und Anteile)
-const DEFAULTS = Object.freeze({ ...CALC_DEFAULTS, etfSymbol: '', etfShares: 0, loanShares: 0 });
-const TEXT_KEYS = ['variant', 'planMode', 'planStart', 'planCustom', 'etfSymbol'];
-
-const STORE_KEY = 'darlehen-tracker:v1';
 const RATES = [0, 1, 2, 3, 4, 5, 6, 7, 8];
-const NUM_KEYS = Object.keys(DEFAULTS).filter((k) => !TEXT_KEYS.includes(k));
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 
-// ---------- Speicher (localStorage mit try/catch) ----------
-
-function storeGet(key) {
-  try { return JSON.parse(localStorage.getItem(key)); } catch { return null; }
-}
-function storeSet(key, value) {
-  try { localStorage.setItem(key, JSON.stringify(value)); return true; } catch { return false; }
-}
-
-function sanitize(raw) {
-  const out = { ...DEFAULTS };
-  if (!raw || typeof raw !== 'object') return out;
-  for (const k of NUM_KEYS) {
-    if (k in raw) {
-      const v = typeof raw[k] === 'string' ? Number(raw[k].replace(',', '.')) : Number(raw[k]);
-      if (Number.isFinite(v)) out[k] = v;
-    }
-  }
-  if (raw.variant === 'A' || raw.variant === 'B') out.variant = raw.variant;
-  if (['standard', 'simple', 'custom'].includes(raw.planMode)) out.planMode = raw.planMode;
-  if (typeof raw.planStart === 'string' && (raw.planStart === '' || /^\d{4}-\d{2}$/.test(raw.planStart))) out.planStart = raw.planStart;
-  if (Array.isArray(raw.planCustom)) {
-    out.planCustom = raw.planCustom
-      .filter((r) => r && /^\d{4}-\d{2}$/.test(String(r.m)) && Number.isFinite(Number(r.a)))
-      .slice(0, 1200)
-      .map((r) => ({ m: String(r.m), a: Math.max(0, Number(r.a)) }));
-  }
-  if (typeof raw.etfSymbol === 'string') out.etfSymbol = raw.etfSymbol.slice(0, 60);
-  return out;
-}
 /** Eingaben für den Rechenkern, mit heutigem Monat als Bezugspunkt. */
-function inp(extra = {}) { return { ...state.input, refMonth: currentMonth(), ...extra }; }
+function inp(extra = {}) { return { ...state.input, refMonth: currentMonth(new Date()), ...extra }; }
 function fmtMonth(ym) {
   if (!ym) return '–';
   const [y, mo] = ym.split('-').map(Number);
   return new Date(y, mo - 1, 1).toLocaleDateString('de-DE', { month: 'short', year: 'numeric' });
 }
 
-const saved = storeGet(STORE_KEY) || {};
+const saved = storeLoad() || {};
 const state = {
   input: sanitize(saved.input),
   view: { net: !!(saved.view && saved.view.net), real: !!(saved.view && saved.view.real) },
@@ -70,7 +37,7 @@ const state = {
   quote: saved.quote && Number.isFinite(saved.quote.price) ? saved.quote : null,
 };
 function persist() {
-  storeSet(STORE_KEY, { input: state.input, view: state.view, tab: state.tab, theme: state.theme, settings: state.settings, quote: state.quote });
+  storeSave({ input: state.input, view: state.view, tab: state.tab, theme: state.theme, settings: state.settings, quote: state.quote });
 }
 
 // ---------- Format-Helfer ----------
@@ -220,7 +187,7 @@ $('#btn-reset').addEventListener('click', () => {
   persist(); syncForm(); renderPlanEditor(); update(); setIo('Alle Eingaben auf die Ausgangswerte zurückgesetzt.');
 });
 $('#btn-export').addEventListener('click', () => {
-  const data = { app: 'darlehen-tracker', version: 1, exportiert: new Date().toISOString(), eingaben: state.input };
+  const data = buildExport(state.input, new Date().toISOString());
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -235,10 +202,9 @@ $('#file-import').addEventListener('change', async (e) => {
   e.target.value = '';
   if (!file) return;
   try {
-    const data = JSON.parse(await file.text());
-    const raw = data && typeof data === 'object' ? (data.eingaben || data.input || data) : null;
-    if (!raw || !Object.keys(raw).some((k) => k in DEFAULTS)) throw new Error('keine bekannten Felder');
-    state.input = sanitize(raw);
+    const res = parseImport(JSON.parse(await file.text()));
+    if (!res.ok) throw new Error(IMPORT_ERRORS[res.error]);
+    state.input = res.input;
     persist(); syncForm(); renderPlanEditor(); update();
     setIo(`JSON importiert: ${file.name}.`);
   } catch (err) {
@@ -252,7 +218,7 @@ function noteHtml(kind, keyword, html) {
   return `<div class="note ${kind}" role="note"><p><span class="cap">${keyword}</span>${html}</p></div>`;
 }
 function renderWarnings() {
-  const msgs = validate(state.input);
+  const msgs = validate(inp()).map(validationText);
   const box = $('#notes-achtung');
   box.innerHTML = msgs.length
     ? `<div class="note warn" role="alert"><p><span class="cap">ACHTUNG</span>Einige Eingaben passen nicht zusammen:</p><ul>${msgs.map((m) => `<li>${esc(m)}</li>`).join('')}</ul></div>`
@@ -841,6 +807,6 @@ update();
 setupServiceWorker();
 window.addEventListener('storage', (e) => {
   if (e.key !== STORE_KEY) return;
-  const s = storeGet(STORE_KEY);
+  const s = storeLoad();
   if (s && s.input) { state.input = sanitize(s.input); syncForm(); update(); }
 });
